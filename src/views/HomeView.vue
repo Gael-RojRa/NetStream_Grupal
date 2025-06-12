@@ -1,9 +1,23 @@
 <script setup lang="ts">
-import TheWelcome from '../components/TheWelcome.vue'
+import CategorySection from "@/components/CategorySection.vue";
+
 </script>
 
 <template>
-  <main>
-    <TheWelcome />
+
+
+  <main class="main">
+    <CategorySection />
+    <CategorySection />
+    <CategorySection />
+    <CategorySection />
   </main>
+
+
 </template>
+
+<style scoped>
+.main {
+  margin-top: 1.6rem;
+}
+</style>
