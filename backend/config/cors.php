@@ -19,7 +19,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*', 'http://localhost:5174'],
+    'allowed_origins' => ['*', 'http://localhost:5174', 'https://net-stream-grupal-6a74miqde-gael-pps-projects.vercel.app/'],
 
     'allowed_origins_patterns' => [],
 
