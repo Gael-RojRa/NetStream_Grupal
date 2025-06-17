@@ -63,4 +63,21 @@ class TVDBController extends Controller
 
         return response()->json($response->json());
     }
+
+    public function getImage(Request $request)
+    {
+        $path = $request->query('path');
+        if (!$path) {
+            return response()->json(['error' => 'Falta el parámetro path'], 400);
+        }
+
+        $response = Http::get('https://artworks.thetvdb.com' . $path);
+
+        if ($response->successful()) {
+            return response($response->body(), 200)
+                ->header('Content-Type', $response->header('Content-Type'));
+        }
+
+        return response()->json(['error' => 'No se pudo obtener la imagen'], 500);
+    }
 }
