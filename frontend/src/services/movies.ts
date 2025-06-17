@@ -8,3 +8,11 @@ export async function fetchMovies(page:number): Promise<Movie> {
   const response = await api.get<Movie>(`movies?page=${page}`);
   return response.data;
 }
+
+export async function getImage(imagePath: string): Promise<string> {
+  if (!imagePath) {
+    return '';
+  }
+  const response = await api.get<string>(`image?path=${imagePath}`);
+  return response.data;
+}

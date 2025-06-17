@@ -20,5 +20,6 @@ import NavBar from "@/components/NavBar.vue";
   background-color: #1b1b1f;
   padding: 15px;
   margin: 8px;
+  min-height: 90dvh;
 }
 </style>

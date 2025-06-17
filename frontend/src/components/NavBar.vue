@@ -1,38 +1,42 @@
+<script setup lang="ts">
+
+
+</script>
+
 <template>
 
-<nav class="nav">
-      <div class="nav__menu">
-        <div class="nav__item">
-          <img
-            class="nav__icon nav__icon-active"
-            src="../temporalImgs/explore.svg"
-            alt="Explore"
-          />
+  <nav class="nav">
+    <div class="nav__menu">
+      <div class="nav__item">
+
+        <router-link class="router-link" to="/">
+          <img class="nav__icon" src="../temporalImgs/explore.svg" alt="Explore" />
           <span class="nav__text">Explore</span>
-        </div>
-        <div class="nav__item">
+        </router-link>
+
+
+      </div>
+      <div class="nav__item">
+        <router-link class="router-link" to="/shows">
           <img class="nav__icon" src="../temporalImgs/shows.svg" alt="shows" />
           <span class="nav__text">My shows</span>
-        </div>
-        <div class="nav__item">
-          <img class="nav__icon" src="../temporalImgs/calendar.svg" alt="Calendar" />
-          <span class="nav__text">Calendar</span>
-        </div>
-        <div class="nav__item">
-          <img
-            class="nav__icon"
-            src="../temporalImgs/notification.svg"
-            alt="Notification"
-          />
-          <span class="nav__text">Notification</span>
-        </div>
+        </router-link>
+
       </div>
-    </nav>
+      <div class="nav__item">
+        <img class="nav__icon" src="../temporalImgs/calendar.svg" alt="Calendar" />
+        <span class="nav__text">Calendar</span>
+      </div>
+      <div class="nav__item">
+        <img class="nav__icon" src="../temporalImgs/notification.svg" alt="Notification" />
+        <span class="nav__text">Notification</span>
+      </div>
+    </div>
+  </nav>
 
 </template>
 
 <style scoped>
-
 .nav {
   position: fixed;
   bottom: 0;
@@ -65,12 +69,18 @@
   border-radius: 10px;
 }
 
-.nav__icon-active {
+.router-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-decoration: none;
+}
+
+.router-link-active .nav__icon {
   background-color: #42455d;
 }
 
 .nav__text {
   font-size: 0.8rem;
 }
-
 </style>

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'net-stream-grupal-bcy7-11s92o3au-gael-pps-projects.vercel.app/tvdb/',
+  baseURL: 'http://localhost:8000/tvdb/',
 });
 
 export default api;

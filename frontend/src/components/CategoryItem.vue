@@ -1,14 +1,27 @@
+<script setup lang="ts">
+
+
+const props = defineProps<{
+  title: string
+  image: string
+  rating: number
+}>()
+
+const newImage = `https://artworks.thetvdb.com${props.image}`
+
+</script>
+
 <template>
   <div class="category__item">
     <div class="category__image-container">
       <img
         class="category__item-image"
-        src="https://images.cdn.prd.api.discomax.com/2025/05/24/d3580862-41c2-3ba4-9b1c-8b361e31b8e0.jpeg"
-        alt="Westworld"
+        :src="newImage"
+        :alt="title"
       />
-      <div class="category__item-rating">7.9</div>
+      <div class="category__item-rating">{{ rating }}</div>
     </div>
-    <h3 class="category__item-title">Venom</h3>
+    <h3 class="category__item-title">{{ title }}</h3>
   </div>
 </template>
 
