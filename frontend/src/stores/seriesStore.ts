@@ -1,25 +1,25 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { fetchMovies } from '@/services/movies'
-import type { Datum } from '@/types/movie'
+import { fetchSeries } from '@/services/series'
+import type { Datum } from '@/types/serie'
 
 
-export const useMoviesStore = defineStore('movies', () => {
-  const movies = ref<Datum[]>([])
+export const useSeriesStore = defineStore('series', () => {
+  const series = ref<Datum[]>([])
   const page = ref(0)
   const loading = ref(false)
   const hasMore = ref(true)
   const token = ref<string | null>(null)
 
-  const loadMovies = async () => {
+  const loadSeries = async () => {
     if (loading.value || !hasMore.value) return
     loading.value = true
     try {
-      const result = await fetchMovies(page.value)
+      const result = await fetchSeries(page.value)
       if (result.data.length === 0) {
         hasMore.value = false
       } else {
-        movies.value.push(...result.data)
+        series.value.push(...result.data)
         page.value++
       }
     } catch (e) {
@@ -28,5 +28,5 @@ export const useMoviesStore = defineStore('movies', () => {
     loading.value = false
   }
 
-  return { token, movies, page, loading, hasMore, loadMovies }
+  return { token, series, page, loading, hasMore, loadSeries }
 })

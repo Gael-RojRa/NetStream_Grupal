@@ -32,3 +32,4 @@ export enum Name {
 export enum RecordType {
   Movie = "movie",
 }
+

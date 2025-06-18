@@ -1,9 +1,9 @@
 import api from './api';
-import type { Movie } from '../types/movie';
+import type { Serie } from '../types/serie';
 import { useMoviesStore } from '@/stores/moviesStore';
 import { login } from '@/services/auth';
 
-export async function fetchMovies(page:number): Promise<Movie> {
+export async function fetchSeries(page:number): Promise<Serie> {
   
   if (useMoviesStore().token === null) {
     await login()
@@ -21,7 +21,7 @@ export async function fetchMovies(page:number): Promise<Movie> {
     page = 1;
   }
 
-  const response = await api.get<Movie>(`movies?page=${page}`,
+  const response = await api.get<Serie>(`series?page=${page}`,
     {
       headers: {
         Authorization: `Bearer ${useMoviesStore().token}`,
@@ -31,12 +31,4 @@ export async function fetchMovies(page:number): Promise<Movie> {
 
   return response.data;
 
-}
-
-export async function getImage(imagePath: string): Promise<string> {
-  if (!imagePath) {
-    return '';
-  }
-  const response = await api.get<string>(`image?path=${imagePath}`);
-  return response.data;
 }
