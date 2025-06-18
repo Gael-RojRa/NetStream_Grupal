@@ -16,21 +16,7 @@ import CategoryItem from "./CategoryItem.vue";
     </div>
     <div class="category__scroll">
       <div class="category__grid">
-        <CategoryItem />
-        <CategoryItem />
-        <CategoryItem />
-        <CategoryItem />
-        <CategoryItem />
-        <CategoryItem />
-        <CategoryItem />
-        <CategoryItem />
-        <CategoryItem />
-        <CategoryItem />
-        <CategoryItem />
-        <CategoryItem />
-        <CategoryItem />
-        <CategoryItem />
-        <CategoryItem />
+
       </div>
     </div>
   </section>
