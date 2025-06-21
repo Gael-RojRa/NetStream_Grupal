@@ -47,7 +47,7 @@ console.log(items)
     <div class="loading-grid">
       <div 
         v-for="n in 12" 
-        :key="n" 
+        :key="n"
         class="loading-item"
       >
         <div class="loading-image"></div>
@@ -96,7 +96,7 @@ console.log(items)
 .content-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
-  gap: 10px;
+  gap: 6px;
   width: 100%;
 }
 
@@ -107,14 +107,14 @@ console.log(items)
 .loading-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
-  gap: 10px;
+  gap: 6px;
   width: 100%;
 }
 
 .loading-item {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   animation: pulse 2s ease-in-out infinite;
 }
 

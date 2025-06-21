@@ -114,10 +114,10 @@ const detailSerie = () => {
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  height: 2.4em;
-  line-height: 1.2em;
+  height: 3.5em;
+  line-height: 1.4em;
   margin-top: 8px;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 500;
   color: #bfbdc2;
   transition: color 0.3s ease;
