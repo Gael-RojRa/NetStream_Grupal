@@ -35,11 +35,15 @@ const router = createRouter({
         },
       ],
     },
-
     {
-      path: "/details/:slug",
-      name: "details",
-      component: () => import("@/components/MediaDetailed.vue"),
+      path: "/details/movie/:slug",
+      name: "movie-details",
+      component: () => import("@/views/MediaDetailView.vue"),
+    },
+    {
+      path: "/details/serie/:slug",
+      name: "serie-details",
+      component: () => import("@/views/MediaDetailView.vue"),
     },
   ],
 });

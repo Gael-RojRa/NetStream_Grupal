@@ -7,6 +7,7 @@ const props = defineProps<{
   image?: string
   rating: number
   slug?: string
+  mediaType?: 'series' | 'movies' // Nuevo prop para distinguir el tipo
 }>()
 
 const getNewImage = () => {
@@ -19,15 +20,29 @@ const getNewImage = () => {
 }
 
 const detailSerie = () => {
-  router.push({
-    name: 'details',
-    params: {
-      slug: props.slug,
-    }
-  });
+  if (props.mediaType === 'movies') {
+    router.push({
+      name: 'movie-details',
+      params: {
+        slug: props.slug,
+      }
+    });
+  } else if (props.mediaType === 'series') {
+    router.push({
+      name: 'serie-details',
+      params: {
+        slug: props.slug,
+      }
+    });
+  } else {
+    router.push({
+      name: 'serie-details',
+      params: {
+        slug: props.slug,
+      }
+    });
+  }
 }
-
-
 </script>
 
 <template>
@@ -46,53 +61,69 @@ const detailSerie = () => {
   flex-direction: column;
   flex: 1 1 145px;
   max-width: 200px;
-  transition: all 0.2s ease-out;
+  transition: all 0.3s ease-out;
+  cursor: pointer;
 }
 
 .category__item:hover {
-  cursor: pointer;
-  border: 2px solid #ffffff;
-  border-radius: 13px;
-  transform: scale(0.96);
-  padding: 4px;
-  transition: all 0.2s ease-out;
-  transition: transform 0.2s ease-out;
+  border: 2px solid #bac3ff;
+  border-radius: 15px;
+  transform: scale(1.02);
+  padding: 6px;
+  box-shadow: 0 8px 25px rgba(186, 195, 255, 0.2);
 }
 
 .category__image-container {
   width: 100%;
   height: 100%;
   position: relative;
+  overflow: hidden;
+  border-radius: 10px;
 }
 
 .category__item-image {
   width: 100%;
   height: 100%;
-  max-height: 285.117px;
+  max-height: 285px;
   border-radius: 10px;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.category__item:hover .category__item-image {
+  transform: scale(1.05);
 }
 
 .category__item-rating {
   position: absolute;
-  top: 5px;
-  right: 5px;
-  padding: 3px 6px;
-  border-radius: 8px;
+  top: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  border-radius: 12px;
   color: white;
-  background-color: rgba(0, 0, 0, 0.632);
+  background-color: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
   z-index: 1;
   font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .category__item-title {
-    display: -webkit-box;
-  -webkit-line-clamp: 2; /* Limita a 2 líneas */
+  display: -webkit-box;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  height: 2.4em; /* Altura fija para 2 líneas */
+  height: 2.4em;
   line-height: 1.2em;
-  margin-top: 5px;
+  margin-top: 8px;
   font-size: 0.9rem;
+  font-weight: 500;
+  color: #bfbdc2;
+  transition: color 0.3s ease;
+}
+
+.category__item:hover .category__item-title {
+  color: #ffffff;
 }
 </style>

@@ -1,72 +1,686 @@
-<template>
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { searchMedia, type SearchResult, type Datum } from '@/services/search'
+import { useRouter } from 'vue-router'
 
-<header class="header">
-      <div class="header__search-container">
-        <div class="header__search-icon-container">
-          <img
-            class="header__search-icon"
-            src="../temporalImgs/search.svg"
-            alt="Buscar"
-          />
+const searchValue = ref('')
+const isInputFocused = ref(false)
+const searchResults = ref<Datum[]>([])
+const isSearching = ref(false)
+const searchType = ref<'all' | 'movie' | 'series'>('all')
+const showTypeDropdown = ref(false)
+const showSearchResults = ref(false)
+const searchTimeout = ref<number | null>(null)
+
+const router = useRouter()
+
+const onInputFocus = () => {
+  isInputFocused.value = true
+  document.body.classList.add('keyboard-visible')
+}
+
+const onInputBlur = () => {
+  setTimeout(() => {
+    isInputFocused.value = false
+    showSearchResults.value = false
+    document.body.classList.remove('keyboard-visible')
+  }, 200)
+}
+
+const clearSearch = () => {
+  searchValue.value = ''
+  searchResults.value = []
+  showSearchResults.value = false
+  if (searchTimeout.value) {
+    clearTimeout(searchTimeout.value)
+  }
+}
+
+const focusSearchInput = () => {
+  isInputFocused.value = true
+  nextTick(() => {
+    const input = document.querySelector('.header__input') as HTMLInputElement
+    if (input) {
+      input.focus()
+    }
+  })
+}
+
+const performSearch = async () => {
+  if (!searchValue.value.trim()) {
+    searchResults.value = []
+    showSearchResults.value = false
+    return
+  }
+
+  isSearching.value = true
+  try {
+    const result = await searchMedia(searchValue.value.trim(), searchType.value === 'all' ? undefined : searchType.value, 15)
+    searchResults.value = result.data
+    showSearchResults.value = true
+  } catch (error) {
+    console.error('Error en búsqueda:', error)
+    searchResults.value = []
+  } finally {
+    isSearching.value = false
+  }
+}
+
+const goToDetail = (item: Datum) => {
+  const routeName = item.type === 'movie' ? 'movie-details' : 'serie-details'
+  router.push({
+    name: routeName,
+    params: { slug: item.slug }
+  })
+  clearSearch()
+}
+
+const searchTypeOptions = [
+  { value: 'all', label: 'Todo' },
+  { value: 'movie', label: 'Películas' },
+  { value: 'series', label: 'Series' }
+]
+
+const selectSearchType = (type: 'all' | 'movie' | 'series') => {
+  searchType.value = type
+  showTypeDropdown.value = false
+  if (searchValue.value.trim()) {
+    performSearch()
+  }
+}
+
+const toggleTypeDropdown = () => {
+  showTypeDropdown.value = !showTypeDropdown.value
+}
+
+const closeTypeDropdown = () => {
+  showTypeDropdown.value = false
+}
+
+watch(searchValue, () => {
+  if (searchTimeout.value) {
+    clearTimeout(searchTimeout.value)
+  }
+  
+  searchTimeout.value = setTimeout(() => {
+    performSearch()
+  }, 300)
+})
+
+const handleClickOutside = (event: Event) => {
+  const target = event.target as HTMLElement
+  if (!target.closest('.header__search-container') && !target.closest('.search-type-dropdown')) {
+    showTypeDropdown.value = false
+    if (!target.closest('.search-results')) {
+      showSearchResults.value = false
+    }
+  }
+}
+
+const handleViewportChange = () => {
+  const viewportHeight = window.visualViewport?.height || window.innerHeight
+  const windowHeight = window.screen.height
+  
+  if (viewportHeight < windowHeight * 0.75) {
+    document.body.classList.add('keyboard-visible')
+  } else {
+    document.body.classList.remove('keyboard-visible')
+  }
+}
+
+onMounted(() => {
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', handleViewportChange)
+  }
+  
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  if (window.visualViewport) {
+    window.visualViewport.removeEventListener('resize', handleViewportChange)
+  }
+  document.removeEventListener('click', handleClickOutside)
+  document.body.classList.remove('keyboard-visible')
+  
+  if (searchTimeout.value) {
+    clearTimeout(searchTimeout.value)
+  }
+})
+</script>
+
+<template>
+  <header class="header">
+    <!-- Estado inicial: solo ícono de lupa -->
+    <div v-if="!isInputFocused && !searchValue" class="header__search-icon-only" @click="focusSearchInput">
+      <img
+        class="header__search-icon"
+        src="../temporalImgs/search.svg"
+        alt="Buscar"
+      />
+    </div>
+
+    <!-- Estado expandido: barra de búsqueda completa -->
+    <div v-else class="header__search-container" :class="{ 'expanded': isInputFocused || searchValue }">
+      <!-- Selector de tipo de búsqueda -->
+      <div class="search-type-selector" @click="toggleTypeDropdown">
+        <span class="search-type-text">{{ searchTypeOptions.find(opt => opt.value === searchType)?.label }}</span>
+        <svg class="search-type-arrow" :class="{ 'rotated': showTypeDropdown }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6,9 12,15 18,9"></polyline>
+        </svg>
+        
+        <!-- Dropdown de tipos -->
+        <div v-if="showTypeDropdown" class="search-type-dropdown">
+          <div 
+            v-for="option in searchTypeOptions" 
+            :key="option.value"
+            class="search-type-option"
+            :class="{ 'active': option.value === searchType }"
+            @click.stop="selectSearchType(option.value as 'all' | 'movie' | 'series')"
+          >
+            {{ option.label }}
+          </div>
         </div>
-        <input
-          class="header__input"
-          type="text"
-          placeholder="Search for something."
+      </div>
+
+      <div class="header__search-icon-container">
+        <img
+          class="header__search-icon"
+          src="../temporalImgs/search.svg"
+          alt="Buscar"
         />
       </div>
-      <img class="header__profile" src="../temporalImgs/pfp.webp" alt="Perfil" />
-    </header>
+      
+      <input
+        ref="searchInput"
+        class="header__input"
+        type="text"
+        placeholder="Buscar películas, series..."
+        v-model="searchValue"
+        @focus="onInputFocus"
+        @blur="onInputBlur"
+      />
+      
+      <div class="header__search-clear" v-if="searchValue" @click="clearSearch">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </div>
 
+      <!-- Resultados de búsqueda -->
+      <div v-if="showSearchResults" class="search-results">
+        <div v-if="isSearching" class="search-loading">
+          <div class="search-spinner"></div>
+          <span>Buscando...</span>
+        </div>
+        
+        <div v-else-if="searchResults.length === 0" class="search-no-results">
+          <span>No se encontraron resultados</span>
+        </div>
+        
+        <div v-else class="search-results-list">
+          <div 
+            v-for="result in searchResults" 
+            :key="result.id"
+            class="search-result-item"
+            @click="goToDetail(result)"          >
+            <img 
+              class="search-result-image" 
+              :src="result.image_url || result.thumbnail || '/placeholder-image.jpg'" 
+              :alt="result.name"
+              @error="(e) => (e.target as HTMLImageElement).src = '/placeholder-image.jpg'"
+            />
+            <div class="search-result-info">
+              <h4 class="search-result-title">{{ result.name }}</h4>
+              <div class="search-result-meta">
+                <span class="search-result-type">{{ result.type === 'movie' ? 'Película' : 'Serie' }}</span>
+                <span v-if="result.year" class="search-result-year">{{ result.year }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Ícono de perfil: se oculta cuando está buscando -->
+    <img 
+      class="header__profile" 
+      :class="{ 'hidden': isInputFocused || searchValue }"
+      src="../temporalImgs/pfp.webp" 
+      alt="Perfil" 
+    />
+  </header>
 </template>
 
 <style scoped>
-
 .header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
   display: flex;
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  padding: 0 10px;
-  background-color: #2c2d38;
-  border-radius: 15px;
+  padding: 12px 16px;
+  background: rgba(44, 45, 56, 0.438);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(100px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+/* Estado inicial: solo ícono de lupa */
+.header__search-icon-only {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 50%;
+  background-color: rgba(35, 36, 42, 0.568);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.header__search-icon-only:hover {
+  background-color: rgba(35, 36, 42, 0.8);
+  border-color: rgba(186, 195, 255, 0.5);
+  transform: scale(1.05);
+}
+
+.header__search-icon-only .header__search-icon {
+  width: 20px;
+  height: 20px;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.header__search-icon-only:hover .header__search-icon {
+  opacity: 1;
 }
 
 .header__search-container {
   display: flex;
   flex-direction: row;
   align-items: center;
-  height: 50px;
-  width: 85%;
-  gap: 5px;
+  height: 48px;
+  width: 100%;
+  background-color: rgba(35, 36, 42, 0.568);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  padding: 0 16px;
+  gap: 12px;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.header__search-container:focus-within {
+  background-color: rgba(35, 36, 42, 0.473);
+  border-color: rgba(186, 195, 255, 0.5);
+  box-shadow: 0 0 0 2px rgba(186, 195, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+/* Selector de tipo de búsqueda */
+.search-type-selector {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.search-type-selector:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.search-type-text {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #bfbdc2;
+  white-space: nowrap;
+}
+
+.search-type-arrow {
+  color: #bfbdc2;
+  transition: transform 0.2s ease;
+}
+
+.search-type-arrow.rotated {
+  transform: rotate(180deg);
+}
+
+.search-type-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background-color: rgba(35, 36, 42, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  z-index: 1001;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.search-type-option {
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  color: #bfbdc2;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.search-type-option:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.search-type-option.active {
+  background-color: rgba(186, 195, 255, 0.2);
+  color: #bac3ff;
 }
 
 .header__search-icon-container {
   width: 20px;
   height: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .header__search-icon {
   width: 100%;
   height: 100%;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+.header__search-container:focus-within .header__search-icon {
+  opacity: 1;
 }
 
 .header__input {
   background-color: transparent;
   border: none;
   width: 100%;
-  font-size: 18px;
+  font-size: 16px;
+  color: #bfbdc2;
+  font-weight: 400;
+  outline: none;
+  padding: 0;
+  line-height: 1.4;
 }
 
-.header__input:focus {
-  outline: none;
+.header__input::placeholder {
+  color: rgba(191, 189, 194, 0.6);
+  font-weight: 400;
+}
+
+.header__input:focus::placeholder {
+  color: rgba(191, 189, 194, 0.8);
+}
+
+.header__search-clear {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.header__search-clear:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+.header__search-clear svg {
+  color: #bfbdc2;
+  width: 14px;
+  height: 14px;
+}
+
+/* Resultados de búsqueda */
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 8px;
+  background-color: rgba(35, 36, 42, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: 1000;
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.search-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px;
+  color: #bfbdc2;
+  font-size: 0.9rem;
+}
+
+.search-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(186, 195, 255, 0.3);
+  border-top: 2px solid #bac3ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.search-no-results {
+  padding: 20px;
+  text-align: center;
+  color: #b0b0b0;
+  font-size: 0.9rem;
+}
+
+.search-results-list {
+  padding: 8px 0;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.search-result-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-image {
+  width: 50px;
+  height: 70px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.search-result-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-result-title {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #bfbdc2;
+  margin: 0 0 4px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-result-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: #b0b0b0;
+}
+
+.search-result-type {
+  background-color: rgba(186, 195, 255, 0.2);
+  color: #bac3ff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.search-result-year::before {
+  content: "•";
+  margin-right: 4px;
+}
+
+.search-result-score::before {
+  content: "•";
+  margin-right: 4px;
 }
 
 .header__profile {
-  width: 35px;
-  height: 35px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 1;
+  transform: scale(1);
 }
 
+.header__profile.hidden {
+  opacity: 0;
+  transform: scale(0.8);
+  pointer-events: none;
+  width: 0;
+  height: 0;
+}
+
+.header__profile:hover {
+  border-color: rgba(186, 195, 255, 0.8);
+  transform: scale(1.05);
+}
+
+.header__profile.hidden:hover {
+  transform: scale(0.8);
+}
+
+/* Estilos globales para cuando el teclado está visible */
+:global(body.keyboard-visible) {
+  padding-bottom: 0 !important;
+}
+
+:global(body.keyboard-visible .header) {
+  position: fixed !important;
+  top: 0 !important;
+}
+
+/* Media queries para diferentes tamaños de pantalla */
+@media (max-width: 480px) {
+  .header {
+    padding: 10px 12px;
+  }
+  
+  .header__search-container {
+    height: 44px;
+    padding: 0 14px;
+    gap: 8px;
+  }
+  
+  .header__input {
+    font-size: 16px; /* Evita zoom en iOS */
+  }
+  
+  .header__profile {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .search-type-text {
+    font-size: 0.7rem;
+  }
+  
+  .search-results {
+    max-height: 300px;
+  }
+}
+
+@media (min-width: 768px) {
+  .header {
+    padding: 16px 24px;
+  }
+  
+  .header__search-container {
+    height: 52px;
+    padding: 0 20px;
+    gap: 16px;
+    max-width: 600px;
+  }
+  
+  .header__input {
+    font-size: 18px;
+  }
+  
+  .header__profile {
+    width: 44px;
+    height: 44px;
+  }
+  
+  .search-results {
+    max-height: 500px;
+  }
+}
+
+/* Animaciones suaves */
+@media (prefers-reduced-motion: no-preference) {
+  .header__search-container {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .header__input {
+    transition: color 0.3s ease;
+  }
+}
 </style>

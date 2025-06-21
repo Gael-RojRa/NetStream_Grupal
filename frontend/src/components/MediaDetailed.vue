@@ -1,14 +1,26 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router';
 import type { SerieExtended } from '@/types/serieExtended';
-import { ref } from 'vue';
+import type { MovieExtended } from '@/types/movieExtended';
+import { ref, computed } from 'vue';
 import { fetchSerieBySlug } from '@/services/series';
+import { fetchMovieBySlug } from '@/services/movies';
 import { onMounted } from 'vue';
 
 const route = useRoute();
 const serie = ref<SerieExtended | null>(null);
+const movie = ref<MovieExtended | null>(null);
 const loading = ref(true);
 const error = ref<string | null>(null);
+
+// Detectar si es una serie o película basado en la ruta
+const isMovie = computed(() => {
+  return route.query.type === 'movie' || route.path.includes('/movie/');
+});
+
+const mediaData = computed(() => {
+  return isMovie.value ? movie.value?.data : serie.value?.data;
+});
 
 onMounted(async () => {
   try {
@@ -18,20 +30,25 @@ onMounted(async () => {
       throw new Error('Slug is required');
     }
 
-    const serieData = await fetchSerieBySlug(slug);
-    serie.value = serieData;
+    if (isMovie.value) {
+      const movieData = await fetchMovieBySlug(slug);
+      console.log('slug movie', slug);
+      movie.value = movieData;
+    } else {
+      const serieData = await fetchSerieBySlug(slug);
+      serie.value = serieData;
+    }
 
   } catch (err) {
-    error.value = 'Error fetching serie details';
+    error.value = `Error fetching ${isMovie.value ? 'movie' : 'serie'} details`;
     console.error(err);
   } finally {
-    console.log(serie.value);
+
     loading.value = false;
   }
 });
 
 const getYouTubeEmbedUrl = (url: string) => {
-  // Convertir URL normal de YouTube a embed
   if (url.includes('youtube.com/watch?v=')) {
     const videoId = url.split('v=')[1]?.split('&')[0];
     return `https://www.youtube.com/embed/${videoId}`;
@@ -39,41 +56,73 @@ const getYouTubeEmbedUrl = (url: string) => {
     const videoId = url.split('youtu.be/')[1]?.split('?')[0];
     return `https://www.youtube.com/embed/${videoId}`;
   }
-  // Si ya es una URL de embed, devolverla tal como está
   return url;
 };
+
+// Funciones auxiliares para manejar diferencias entre series y películas
+const getNetworkInfo = computed(() => {
+  if (isMovie.value && movie.value) {
+    // Para películas, usar el primer estudio o compañía de producción
+    const studio = movie.value.data.studios?.[0];
+    const productionCompany = movie.value.data.companies?.production?.[0];
+    return studio || productionCompany || null;
+  } else if (serie.value) {
+    return serie.value.data.originalNetwork;
+  }
+  return null;
+});
+
+const getDurationInfo = computed(() => {
+  if (isMovie.value && movie.value) {
+    return `${movie.value.data.runtime}m`;
+  } else if (serie.value) {
+    return `${serie.value.data.averageRuntime}m`;
+  }
+  return '';
+});
+
+const getSeasonInfo = computed(() => {
+  if (!isMovie.value && serie.value) {
+    return `${serie.value.data.seasons.length} seasons`;
+  }
+  return '';
+});
+
+const getBudgetInfo = computed(() => {
+  if (isMovie.value && movie.value) {
+    return movie.value.data.budget || movie.value.data.boxOffice;
+  }
+  return '';
+});
 </script>
 
-
 <template>
-  <div v-if="loading" class=loading>Cargando ...</div>
+  <div v-if="loading" class="loading">Cargando ...</div>
   <div v-else-if="error" class="error">{{ error }}</div>
-  <div v-else-if="serie" class="media-details">
+  <div v-else-if="mediaData" class="media-details">
 
     <div class="media-details__poster">
-      <img class="poster__img" :src="serie.data.image" alt="Media Poster" />
+      <img class="poster__img" :src="mediaData.image" alt="Media Poster" />
     </div>
 
     <div class="media-details__content">
-      <div class="media-details__network">
-        <img class="network__icon" :src="serie.data.originalNetwork.name" alt="">
-        <span class="network__name"> {{ serie.data.originalNetwork.name }}</span>
+      <div class="media-details__network" v-if="getNetworkInfo">
+        <span class="network__name">{{ getNetworkInfo.name }}</span>
       </div>
-      <h1 class="media-title"> {{ serie.data.name }}</h1>
+      <h1 class="media-title">{{ mediaData.name }}</h1>
       <div class="general-info">
-        <img class="score-icon" src="" alt="IMDB">
-        <span class="general-info__text">{{ serie.data.score }}</span>
-<span class="general-info__text">{{ serie.data.year }}</span>
-        <span class="general-info__text">{{ serie.data.seasons.length }} seasons</span>
-        <span class="general-info__text">{{ serie.data.status.name }}</span>
-        <span class="general-info__text">{{ serie.data.averageRuntime }}m</span>
+        <span class="general-info__text">{{ mediaData.score }}</span>
+        <span class="general-info__text">{{ mediaData.year }}</span>
+        <span class="general-info__text" v-if="getSeasonInfo">{{ getSeasonInfo }}</span>
+        <span class="general-info__text">{{ mediaData.status.name }}</span>
+        <span class="general-info__text">{{ getDurationInfo }}</span>
+        <span class="general-info__text" v-if="getBudgetInfo">{{ getBudgetInfo }}</span>
       </div>
       <div class="media-genre">
-        <span class="media-genre__text" v-for="genre in serie.data.genres" :key="genre.id">{{ genre.name }}</span>
-
+        <span class="media-genre__text" v-for="genre in mediaData.genres" :key="genre.id">{{ genre.name }}</span>
       </div>
-      <div class="media-description">
-        <p class="media-description__text"> {{ serie.data.overview }}</p>
+      <div class="media-description" v-if="mediaData.lists[0]?.overview">
+        <p class="media-description__text">{{ mediaData.lists[0]?.overview }}</p>
       </div>
       <hr>
       <div class="media-Control">
@@ -95,20 +144,20 @@ const getYouTubeEmbedUrl = (url: string) => {
         <span class="play-button__text">Watch Now</span>
       </button>
       <hr>
-      <div class="media-cast">
+      <div class="media-cast" v-if="mediaData.characters?.length">
         <h2>Cast</h2>
         <div class="media-cast__actors">
-          <div class="media-cast__actor" v-for="actor in serie.data.characters" :key="actor.id">
+          <div class="media-cast__actor" v-for="actor in mediaData.characters" :key="actor.id">
             <img class="actor__img" :src="actor.personImgURL" alt="">
             <span class="actor__name">{{ actor.personName }}</span>
           </div>
         </div>
       </div>
-      <hr>
-      <div class="media-trailers">
+      <hr v-if="mediaData.characters?.length">
+      <div class="media-trailers" v-if="mediaData.trailers?.length">
         <h2>Trailers</h2>
         <div class="media-trailers__content">
-          <div class="media-trailers__trailer" v-for="trailer in serie.data.trailers" :key="trailer.id">
+          <div class="media-trailers__trailer" v-for="trailer in mediaData.trailers" :key="trailer.id">
             <iframe width="250" height="140" :src="getYouTubeEmbedUrl(trailer.url)" title="YouTube video player"
               frameborder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -117,13 +166,27 @@ const getYouTubeEmbedUrl = (url: string) => {
           </div>
         </div>
       </div>
-      <hr>
-      <div class="media-images">
+      <hr v-if="mediaData.trailers?.length">
+      <div class="media-images" v-if="mediaData.artworks?.length">
         <h2>Images</h2>
         <div class="media-images__content">
           <div class="media-images__image-container"
-            v-for="artwork in serie.data.artworks?.filter(artwork => artwork.type === 3)" :key="artwork.id">
+            v-for="artwork in mediaData.artworks?.filter(artwork => artwork.type === 3)" :key="artwork.id">
             <img class="media-images__image" :src="artwork.image" alt="">
+          </div>
+        </div>
+      </div>
+
+      <!-- Información específica de películas -->
+      <div v-if="isMovie && movie" class="movie-specific">
+        <hr v-if="movie.data.releases?.length">
+        <div class="movie-releases" v-if="movie.data.releases?.length">
+          <h2>Release Information</h2>
+          <div class="releases-info">
+            <div v-for="release in movie.data.releases" :key="release.country" class="release-item">
+              <span class="release-country">{{ release.country }}</span>
+              <span class="release-date">{{ new Date(release.date).toLocaleDateString() }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -131,12 +194,10 @@ const getYouTubeEmbedUrl = (url: string) => {
     </div>
 
   </div>
-
 </template>
 
 <style scoped>
 .media-details {
-
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -170,12 +231,6 @@ const getYouTubeEmbedUrl = (url: string) => {
   flex-direction: row;
   align-items: center;
   width: fit-content;
-
-}
-
-.network__icon {
-  width: 20px;
-  height: 20px;
 }
 
 .network__name {
@@ -186,8 +241,6 @@ const getYouTubeEmbedUrl = (url: string) => {
 .media-title {
   font-weight: 300;
 }
-
-.score-icon {}
 
 .general-info {
   display: flex;
@@ -223,8 +276,6 @@ const getYouTubeEmbedUrl = (url: string) => {
   border-radius: 6px;
   font-size: 0.7rem;
 }
-
-.media-description {}
 
 .media-description__text {
   font-size: 0.8rem;
@@ -300,7 +351,6 @@ hr {
   gap: 10px;
   width: 100%;
   align-items: flex-start;
-
 }
 
 .media-cast__actors {
@@ -310,7 +360,6 @@ hr {
   width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-
 }
 
 .media-cast__actor {
@@ -324,7 +373,6 @@ hr {
 
 .actor__img {
   width: 100%;
-
 }
 
 .actor__name {
@@ -350,9 +398,6 @@ hr {
   width: 100%;
 }
 
-.media-trailers__trailer {}
-
-
 .media-images {
   display: flex;
   flex-direction: column;
@@ -369,12 +414,42 @@ hr {
   width: 100%;
 }
 
-.media-images__image-container {}
-
 .media-images__image {
   width: 250px;
   height: 140px;
   object-fit: cover;
   border-radius: 10px;
+}
+
+/* Estilos específicos para películas */
+.movie-specific {
+  width: 100%;
+}
+
+.movie-releases {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.releases-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.release-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+}
+
+.release-country {
+  font-weight: 600;
+}
+
+.release-date {
+  color: #b0b0b0;
 }
 </style>
