@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { useMediaStore } from '@/stores/mediaStore';
 
-
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.DEV 
+    ? '/api' // En desarrollo usa el proxy
+    : 'https://api4.thetvdb.com/v4', // En producción usa la API directa
   headers: {
     'Content-Type': 'application/json',
   },
