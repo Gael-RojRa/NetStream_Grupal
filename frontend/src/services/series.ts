@@ -4,7 +4,7 @@ import type { SerieExtended } from '../types/serieExtended';
 import { login } from './auth'
 import { useMediaStore } from '@/stores/mediaStore';
 
-export async function fetchSeries(page: number): Promise<Serie[]> {
+export async function fetchSeries(page: number): Promise<Serie> {
   if (useMediaStore().token === null) {
     const newToken = await login();
     useMediaStore().token = newToken;
@@ -14,7 +14,7 @@ export async function fetchSeries(page: number): Promise<Serie[]> {
     page = 1;
   }
 
-  const response = await api.get<Serie[]>(`series?page=${page}`);
+  const response = await api.get<Serie>(`series?page=${page}`);
   return response.data;
 }
 

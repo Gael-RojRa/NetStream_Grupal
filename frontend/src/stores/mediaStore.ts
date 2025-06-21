@@ -2,12 +2,12 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { fetchMovies } from '@/services/movies'
 import { fetchSeries } from '@/services/series'
-import type { Movie } from '@/types/movie'
-import type { Serie } from '@/types/serie'
+import type { Datum as MovieDatum } from '@/types/movie'
+import type { Datum as SerieDatum } from '@/types/serie'
 
 export const useMediaStore = defineStore('media', () => {
-  const movies = ref<Movie[]>([])
-  const series = ref<Serie[]>([])
+  const movies = ref<MovieDatum[]>([])
+  const series = ref<SerieDatum[]>([])
   const moviesPage = ref(1)
   const seriesPage = ref(1)
   const moviesLoading = ref(false)
@@ -22,10 +22,10 @@ export const useMediaStore = defineStore('media', () => {
     moviesLoading.value = true
     try {
       const result = await fetchMovies(moviesPage.value)
-      if (result.length === 0) {
+      if (result.data.length === 0) {
         moviesHasMore.value = false
       } else {
-        movies.value.push(...result)
+        movies.value.push(...result.data)
         moviesPage.value++
       }
     } catch (e) {
@@ -40,10 +40,10 @@ export const useMediaStore = defineStore('media', () => {
     seriesLoading.value = true
     try {
       const result = await fetchSeries(seriesPage.value)
-      if (result.length === 0) {
+      if (result.data.length === 0) {
         seriesHasMore.value = false
       } else {
-        series.value.push(...result)
+        series.value.push(...result.data)
         seriesPage.value++
       }
     } catch (e) {
