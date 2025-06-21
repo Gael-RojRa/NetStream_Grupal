@@ -1,40 +1,51 @@
 <script setup lang="ts">
-
+import router from '@/router';
 
 const props = defineProps<{
+  id: number
   title: string
-  image: string
+  image?: string
   rating: number
+  slug?: string
 }>()
 
-const newImage = `https://artworks.thetvdb.com${props.image}`
+const getNewImage = () => {
+  if (props.image == null || props.image === 'null') {
+    return 'https://artworks.thetvdb.com/banners/images/missing/movie.jpg';
+  } else {
+    const newImage = `https://artworks.thetvdb.com${props.image}`;
+    return newImage;
+  }
+}
+
+const detailSerie = () => {
+  router.push({
+    name: 'details',
+    params: {
+      slug: props.slug,
+    }
+  });
+}
+
 
 </script>
 
 <template>
-  <div class="category__item">
+  <div class="category__item" @click="detailSerie()">
     <div class="category__image-container">
-      <img
-        class="category__item-image"
-        :src="newImage"
-        :alt="title"
-      />
+      <img class="category__item-image" :src="getNewImage()" :alt="title" />
       <div class="category__item-rating">{{ rating }}</div>
     </div>
     <h3 class="category__item-title">{{ title }}</h3>
   </div>
 </template>
 
-<style scroped>
-
+<style scoped>
 .category__item {
   display: flex;
   flex-direction: column;
-  min-width: 160px;
-  max-width: 160px;
-  min-height: 270px;
-  max-height: 270px;
-  flex: 0 0 160px 240px;
+  flex: 1 1 145px;
+  max-width: 200px;
   transition: all 0.2s ease-out;
 }
 
@@ -57,6 +68,7 @@ const newImage = `https://artworks.thetvdb.com${props.image}`
 .category__item-image {
   width: 100%;
   height: 100%;
+  max-height: 285.117px;
   border-radius: 10px;
 }
 
@@ -73,8 +85,14 @@ const newImage = `https://artworks.thetvdb.com${props.image}`
 }
 
 .category__item-title {
+    display: -webkit-box;
+  -webkit-line-clamp: 2; /* Limita a 2 líneas */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  height: 2.4em; /* Altura fija para 2 líneas */
+  line-height: 1.2em;
   margin-top: 5px;
   font-size: 0.9rem;
 }
-
 </style>

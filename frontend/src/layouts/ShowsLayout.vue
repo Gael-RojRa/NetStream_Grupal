@@ -2,14 +2,17 @@
 
 import NavShows from '@/components/NavShows.vue';
 
+
 </script>
 
 
 <template>
+
     <NavShows />
     <main class="main-content">
     <router-view />
     </main>
+
 
 </template>
 

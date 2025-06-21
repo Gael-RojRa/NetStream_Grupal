@@ -9,7 +9,7 @@
     <div class="nav__menu">
       <div class="nav__item">
 
-        <router-link class="router-link" to="/">
+        <router-link class="router-link" to="/home">
           <img class="nav__icon" src="../temporalImgs/explore.svg" alt="Explore" />
           <span class="nav__text">Explore</span>
         </router-link>

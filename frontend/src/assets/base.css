@@ -12,6 +12,5 @@ body {
   display: flex;
   flex-direction: column;
   background-color: #22232d;
-  padding-bottom: 50px;
   width: 100vw;
 }

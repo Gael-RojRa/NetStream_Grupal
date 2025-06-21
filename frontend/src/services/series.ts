@@ -1,34 +1,41 @@
 import api from './api';
-import type { Serie } from '../types/serie';
-import { useMoviesStore } from '@/stores/moviesStore';
-import { login } from '@/services/auth';
+import type { Serie } from '../types/serie'
+import type { SerieExtended } from '../types/serieExtended';
+import { login } from './auth'
+import { useMediaStore } from '@/stores/mediaStore';
 
-export async function fetchSeries(page:number): Promise<Serie> {
-  
-  if (useMoviesStore().token === null) {
-    await login()
-      .then(token => {
-        useMoviesStore().token = token;
-      }
-    )
-      .catch(error => {
-        console.error('Login failed:', error);
-        throw new Error('Failed to authenticate');
-      });
+export async function fetchSeries(page: number): Promise<Serie[]> {
+  if (useMediaStore().token === null) {
+    const newToken = await login();
+    useMediaStore().token = newToken;
   }
-  
-  if (page < 1 || !page) {
+
+  if (!page || page < 1) {
     page = 1;
   }
 
-  const response = await api.get<Serie>(`series?page=${page}`,
-    {
-      headers: {
-        Authorization: `Bearer ${useMoviesStore().token}`,
-      },
-    }
-  );
-
+  const response = await api.get<Serie[]>(`series?page=${page}`);
   return response.data;
+}
 
+export async function fetchSerieIdBySlug(slug: string): Promise<number> {
+  if (useMediaStore().token === null) {
+    const newToken = await login();
+    useMediaStore().token = newToken;
+  }
+
+  const response = await api.get<SerieExtended>(`series/slug/${slug}`);
+  return response.data.data.id;
+}
+
+export async function fetchSerieBySlug(slug: string): Promise<SerieExtended> {
+  if (useMediaStore().token === null) {
+    const newToken = await login();
+    useMediaStore().token = newToken;
+  }
+
+  const id = await fetchSerieIdBySlug(slug);
+
+  const response = await api.get<SerieExtended>(`series/${id}/extended`);
+  return response.data;
 }

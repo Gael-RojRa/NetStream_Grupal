@@ -1,42 +1,20 @@
 import api from './api';
 import type { Movie } from '../types/movie';
-import { useMoviesStore } from '@/stores/moviesStore';
-import { login } from '@/services/auth';
+import { useMediaStore } from '@/stores/mediaStore';
+import { login } from './auth';
 
-export async function fetchMovies(page:number): Promise<Movie> {
-  
-  if (useMoviesStore().token === null) {
-    await login()
-      .then(token => {
-        useMoviesStore().token = token;
-      }
-    )
-      .catch(error => {
-        console.error('Login failed:', error);
-        throw new Error('Failed to authenticate');
-      });
+
+export async function fetchMovies(page: number): Promise<Movie[]> {
+  if (useMediaStore().token === null) {
+    const newToken = await login();
+    useMediaStore().token = newToken;
   }
-  
-  if (page < 1 || !page) {
+
+  if (!page || page < 1) {
     page = 1;
   }
 
-  const response = await api.get<Movie>(`movies?page=${page}`,
-    {
-      headers: {
-        Authorization: `Bearer ${useMoviesStore().token}`,
-      },
-    }
-  );
-
-  return response.data;
-
-}
-
-export async function getImage(imagePath: string): Promise<string> {
-  if (!imagePath) {
-    return '';
-  }
-  const response = await api.get<string>(`image?path=${imagePath}`);
+  const response = await api.get<Movie[]>(`movies?page=${page}`);
   return response.data;
 }
+
