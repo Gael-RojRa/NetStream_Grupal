@@ -38,6 +38,8 @@ onMounted(() => {
 })
 
 useInfiniteScroll(loadFunction.value)
+
+console.log(items)
 </script>
 
 <template>
