@@ -2,7 +2,7 @@
 import CategoryItem from '@/components/CategoryItem.vue'
 import { useMediaStore } from '@/stores/mediaStore'
 import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 
 interface Props {
   mediaType: 'movies' | 'series'
@@ -37,7 +37,7 @@ onMounted(() => {
   }
 })
 
-useInfiniteScroll(loadFunction.value)
+useInfiniteScroll(loadFunction.value, 600)
 
 console.log(items)
 </script>
@@ -56,17 +56,17 @@ console.log(items)
     </div>
   </div>
 
-  <div v-else class="content-container">
-    <div class="content-grid">
+  <div v-else class="content-container">    <div class="content-grid">
       <CategoryItem
         v-for="item in items"
-        :key="item.id"
+        :key="`${item.id}-${item.name}`"
         :id="item.id"
         :title="item.name"
         :image="item.image"
         :rating="item.score"
         :slug="item.slug"
         :media-type="props.mediaType"
+        v-memo="[item.id, item.name, item.image, item.score]"
       />
     </div>
     

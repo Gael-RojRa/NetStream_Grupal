@@ -48,7 +48,13 @@ const detailSerie = () => {
 <template>
   <div class="category__item" @click="detailSerie()">
     <div class="category__image-container">
-      <img class="category__item-image" :src="getNewImage()" :alt="title" />
+      <img 
+        class="category__item-image" 
+        :src="getNewImage()" 
+        :alt="title" 
+        loading="lazy"
+        decoding="async"
+      />
       <div class="category__item-rating">{{ rating }}</div>
     </div>
     <h3 class="category__item-title">{{ title }}</h3>

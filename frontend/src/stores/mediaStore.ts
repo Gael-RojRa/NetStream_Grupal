@@ -13,6 +13,10 @@ export const useMediaStore = defineStore('media', () => {
   const moviesPage = ref(1)
   const seriesPage = ref(1)
   const token = ref<string | null>(null)
+  
+  // Cache para evitar requests duplicados
+  const moviesCache = new Map<number, MovieDatum[]>()
+  const seriesCache = new Map<number, SerieDatum[]>()
 
   // Loading states using composable
   const moviesState = useLoadingState()
@@ -27,6 +31,14 @@ export const useMediaStore = defineStore('media', () => {
   const loadMovies = async () => {
     if (moviesState.loading.value || !moviesState.hasMore.value) return
     
+    // Verificar cache primero
+    if (moviesCache.has(moviesPage.value)) {
+      const cachedData = moviesCache.get(moviesPage.value)!
+      movies.value.push(...cachedData)
+      moviesPage.value++
+      return
+    }
+    
     const result = await moviesState.handleAsyncOperation(
       () => fetchMovies(moviesPage.value),
       'Error al cargar películas'
@@ -36,6 +48,8 @@ export const useMediaStore = defineStore('media', () => {
       if (result.data.length === 0) {
         moviesState.setHasMore(false)
       } else {
+        // Guardar en cache
+        moviesCache.set(moviesPage.value, result.data)
         movies.value.push(...result.data)
         moviesPage.value++
       }
@@ -47,6 +61,14 @@ export const useMediaStore = defineStore('media', () => {
   const loadSeries = async () => {
     if (seriesState.loading.value || !seriesState.hasMore.value) return
     
+    // Verificar cache primero
+    if (seriesCache.has(seriesPage.value)) {
+      const cachedData = seriesCache.get(seriesPage.value)!
+      series.value.push(...cachedData)
+      seriesPage.value++
+      return
+    }
+    
     const result = await seriesState.handleAsyncOperation(
       () => fetchSeries(seriesPage.value),
       'Error al cargar series'
@@ -56,6 +78,8 @@ export const useMediaStore = defineStore('media', () => {
       if (result.data.length === 0) {
         seriesState.setHasMore(false)
       } else {
+        // Guardar en cache
+        seriesCache.set(seriesPage.value, result.data)
         series.value.push(...result.data)
         seriesPage.value++
       }
@@ -67,12 +91,14 @@ export const useMediaStore = defineStore('media', () => {
   const resetMovies = () => {
     movies.value = []
     moviesPage.value = 1
+    moviesCache.clear()
     moviesState.resetState()
   }
 
   const resetSeries = () => {
     series.value = []
     seriesPage.value = 1
+    seriesCache.clear()
     seriesState.resetState()
   }
 
