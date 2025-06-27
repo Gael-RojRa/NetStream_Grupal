@@ -1,6 +1,6 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 
-export function useInfiniteScroll(callback: () => void, threshold = 800, container?: () => HTMLElement | null) {
+export function useInfiniteScroll(callback: () => void, threshold = 800) {
   const isLoading = ref(false)
   let timeoutId: number | null = null
   let isThrottled = false
@@ -30,10 +30,9 @@ export function useInfiniteScroll(callback: () => void, threshold = 800, contain
     
     // Debounce scroll events
     timeoutId = setTimeout(() => {
-      const element = container?.() || document.documentElement
-      const scrollHeight = element.scrollHeight
-      const scrollTop = element.scrollTop
-      const clientHeight = element.clientHeight
+      const scrollHeight = document.documentElement.scrollHeight
+      const scrollTop = document.documentElement.scrollTop
+      const clientHeight = document.documentElement.clientHeight
       
       if (scrollTop + clientHeight >= scrollHeight - threshold) {
         throttledCallback()
@@ -42,13 +41,11 @@ export function useInfiniteScroll(callback: () => void, threshold = 800, contain
   }
 
   onMounted(() => {
-    const scrollElement = container?.() || window
-    scrollElement.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('scroll', handleScroll, { passive: true })
   })
   
   onUnmounted(() => {
-    const scrollElement = container?.() || window
-    scrollElement.removeEventListener('scroll', handleScroll)
+    window.removeEventListener('scroll', handleScroll)
     if (timeoutId) {
       clearTimeout(timeoutId)
       timeoutId = null

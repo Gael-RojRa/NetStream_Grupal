@@ -2,8 +2,7 @@
 import CategoryItem from '@/components/CategoryItem.vue'
 import { useMediaStore } from '@/stores/mediaStore'
 import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
-import { useVirtualList } from '@vueuse/core'
-import { onMounted, computed, ref, nextTick } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 
 interface Props {
   mediaType: 'movies' | 'series'
@@ -32,85 +31,13 @@ const mediaLabel = computed(() =>
   props.mediaType === 'movies' ? 'películas' : 'series'
 )
 
-// Configuración para el grid virtual
-const containerRef = ref<HTMLElement>()
-const itemHeight = 285 // Altura aproximada de cada item (imagen + título)
-const gap = 6 // Gap entre items
-const containerWidth = ref(0)
-const itemsPerRow = ref(1)
-
-// Calcular cuántos items caben por fila
-const updateItemsPerRow = () => {
-  if (containerRef.value) {
-    containerWidth.value = containerRef.value.offsetWidth
-    const minItemWidth = 145 // minmax del grid CSS
-    itemsPerRow.value = Math.floor(containerWidth.value / (minItemWidth + gap))
-  }
-}
-
-// Crear chunks de items para el grid
-const itemChunks = computed(() => {
-  const chunks = []
-  const itemsArray = items.value
-  
-  for (let i = 0; i < itemsArray.length; i += itemsPerRow.value) {
-    chunks.push(itemsArray.slice(i, i + itemsPerRow.value))
-  }
-  
-  return chunks
-})
-
-// Configurar virtualización
-const { list, containerProps, wrapperProps } = useVirtualList(
-  itemChunks,
-  {
-    itemHeight: itemHeight + gap,
-    overscan: 5,
-  }
-)
-
-// Detectar cuando estamos cerca del final para cargar más items
-const handleScroll = () => {
-  if (!containerRef.value) return
-  
-  const { scrollTop, scrollHeight, clientHeight } = containerRef.value
-  const threshold = 600
-  
-  if (scrollTop + clientHeight >= scrollHeight - threshold && hasMore.value && !loading.value) {
+onMounted(() => {
+  if (items.value.length === 0) {
     loadFunction.value()
   }
-}
-
-onMounted(async () => {
-  if (items.value.length === 0) {
-    await loadFunction.value()
-  }
-  
-  await nextTick()
-  updateItemsPerRow()
-  
-  // Observer para detectar cambios de tamaño
-  const resizeObserver = new ResizeObserver(() => {
-    updateItemsPerRow()
-  })
-  
-  if (containerRef.value) {
-    resizeObserver.observe(containerRef.value)
-  }
-
-  // Configurar infinite scroll para la lista virtual
-  const virtualListElement = containerRef.value?.querySelector('.virtual-list-container')
-  if (virtualListElement) {
-    const { isLoading } = useInfiniteScroll(
-      loadFunction.value,
-      600,
-      () => virtualListElement as HTMLElement
-    )
-  } else {
-    // Fallback para la lista normal
-    useInfiniteScroll(loadFunction.value, 600)
-  }
 })
+
+useInfiniteScroll(loadFunction.value, 600)
 
 console.log(items)
 </script>
@@ -129,38 +56,7 @@ console.log(items)
     </div>
   </div>
 
-  <div v-else class="content-container" ref="containerRef">
-    <!-- Lista virtual para items de gran cantidad -->
-    <div 
-      v-if="items.length > 50"
-      class="virtual-list-container"
-      v-bind="containerProps"
-    >
-      <div v-bind="wrapperProps">
-        <div
-          v-for="{ data, index } in list"
-          :key="index"
-          class="virtual-row"
-        >
-          <div class="content-grid">
-            <CategoryItem
-              v-for="item in data"
-              :key="`${item.id}-${item.name}`"
-              :id="item.id"
-              :title="item.name"
-              :image="item.image"
-              :rating="item.score"
-              :slug="item.slug"
-              :media-type="props.mediaType"
-              v-memo="[item.id, item.name, item.image, item.score]"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Grid simple para pocos items -->
-    <div v-else class="content-grid">
+  <div v-else class="content-container">    <div class="content-grid">
       <CategoryItem
         v-for="item in items"
         :key="`${item.id}-${item.name}`"
@@ -202,21 +98,6 @@ console.log(items)
   grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
   gap: 6px;
   width: 100%;
-}
-
-/* Estilos para lista virtual */
-.virtual-list-container {
-  width: 100%;
-  height: 70vh;
-  overflow: auto;
-}
-
-.virtual-row {
-  width: 100%;
-}
-
-.virtual-row .content-grid {
-  padding: 3px 0;
 }
 
 .initial-loading {
