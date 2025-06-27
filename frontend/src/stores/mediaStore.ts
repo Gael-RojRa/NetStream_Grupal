@@ -48,7 +48,6 @@ export const useMediaStore = defineStore('media', () => {
       if (result.data.length === 0) {
         moviesState.setHasMore(false)
       } else {
-        // Guardar en cache
         moviesCache.set(moviesPage.value, result.data)
         movies.value.push(...result.data)
         moviesPage.value++
@@ -61,7 +60,6 @@ export const useMediaStore = defineStore('media', () => {
   const loadSeries = async () => {
     if (seriesState.loading.value || !seriesState.hasMore.value) return
     
-    // Verificar cache primero
     if (seriesCache.has(seriesPage.value)) {
       const cachedData = seriesCache.get(seriesPage.value)!
       series.value.push(...cachedData)

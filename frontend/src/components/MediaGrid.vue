@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import CategoryItem from '@/components/CategoryItem.vue'
-import { useMediaStore } from '@/stores/mediaStore'
-import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
-import { onMounted, computed, ref } from 'vue'
+import CategoryItem from '@/components/CategoryItem.vue';
+import { useInfiniteScroll } from '@/composables/useInfiniteScroll';
+import { useMediaStore } from '@/stores/mediaStore';
+import { onMounted, nextTick, computed } from 'vue';
+import { DynamicScroller } from 'vue-virtual-scroller';
 
 interface Props {
   mediaType: 'movies' | 'series'
@@ -56,30 +57,38 @@ console.log(items)
     </div>
   </div>
 
-  <div v-else class="content-container">    <div class="content-grid">
-      <CategoryItem
-        v-for="item in items"
-        :key="`${item.id}-${item.name}`"
-        :id="item.id"
-        :title="item.name"
-        :image="item.image"
-        :rating="item.score"
-        :slug="item.slug"
-        :media-type="props.mediaType"
-        v-memo="[item.id, item.name, item.image, item.score]"
-      />
-    </div>
-    
+  <div v-else class="content-container">
+    <DynamicScroller 
+      class="scroller"
+      :items="items"
+      :key-field="'id'"
+      :minItemSize="352"
+      :item-size="352"
+      :buffer="200"
+    >
+      <template #default="{ item, index, active }">
+        <CategoryItem
+          :key="item.id"
+          :id="item.id"
+          :title="item.name"
+          :image="item.image"
+          :rating="item.score"
+          :slug="item.slug"
+          :media-type="props.mediaType"
+        />
+      </template>
+    </DynamicScroller>
+
     <div v-if="loading && items.length > 0" class="load-more-loading">
       <div class="spinner"></div>
       <span class="loading-text">Cargando más {{ mediaLabel }}...</span>
     </div>
-    
+
     <div v-if="!hasMore && items.length > 0" class="no-more-content">
       <div class="no-more-icon">📺</div>
       <span class="no-more-text">No hay más {{ mediaLabel }} disponibles</span>
     </div>
-    
+
     <div v-if="!loading && items.length === 0" class="empty-state">
       <div class="empty-icon">🎬</div>
       <h3 class="empty-title">No se encontraron {{ mediaLabel }}</h3>
@@ -91,14 +100,14 @@ console.log(items)
 <style scoped>
 .content-container {
   width: 100%;
+  height: 100dvh;
 }
 
-.content-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
-  gap: 6px;
-  width: 100%;
+.scroller {
+  height: 100%;
+  align-items: center;
 }
+
 
 .initial-loading {
   width: 100%;
