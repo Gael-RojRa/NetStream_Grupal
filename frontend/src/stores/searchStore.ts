@@ -34,7 +34,7 @@ export const useSearchStore = defineStore('search', () => {
 
     try {
       const searchType = type === 'all' ? undefined : type
-      const result = await searchMedia(query.trim(), searchType, 30)
+      const result = await searchMedia(query.trim(), searchType, 10)
       searchResults.value = result.data
     } catch (error) {
       console.error('Error en búsqueda:', error)
