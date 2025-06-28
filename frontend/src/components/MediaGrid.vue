@@ -117,8 +117,9 @@ watch(() => route.path, () => {
 }
 
 .content-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, 145px);
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 6px;
   width: 100%;
   justify-content: start;
