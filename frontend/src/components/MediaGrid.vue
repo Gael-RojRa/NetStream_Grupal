@@ -108,8 +108,6 @@ watch(() => route.path, () => {
 <style>
 .content-container {
   width: 100%;
-  height: 100dvh;
-  margin-bottom: 50px;
 }
 
 .scroller {
@@ -120,11 +118,11 @@ watch(() => route.path, () => {
 
 .content-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, 145px); /* Columnas fijas de 145px */
+  grid-template-columns: repeat(auto-fill, 145px);
   gap: 6px;
   width: 100%;
-  justify-content: start; /* Evita huecos a la derecha */
-  padding-bottom: 100px;
+  justify-content: start;
+  padding-bottom: 60px;
 }
 
 .search-results-header,
