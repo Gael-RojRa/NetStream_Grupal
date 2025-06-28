@@ -49,7 +49,7 @@ export const useSearchStore = defineStore('search', () => {
 
     isLoadingRandom.value = true
     try {
-      const result = await getRandomMovies(30)
+      const result = await getRandomMovies(10)
       randomMovies.value = result.data
     } catch (error) {
       console.error('Error cargando películas aleatorias:', error)
@@ -64,7 +64,7 @@ export const useSearchStore = defineStore('search', () => {
 
     isLoadingRandom.value = true
     try {
-      const result = await getRandomSeries(30)
+      const result = await getRandomSeries(10)
       randomSeries.value = result.data
     } catch (error) {
       console.error('Error cargando series aleatorias:', error)
