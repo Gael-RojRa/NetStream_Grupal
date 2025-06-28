@@ -2,22 +2,13 @@
 import router from '@/router';
 
 const props = defineProps<{
-  id: number
+  id: string
   title: string
   image?: string
   rating: number
   slug?: string
-  mediaType?: 'series' | 'movies' // Nuevo prop para distinguir el tipo
+  mediaType?: 'series' | 'movies'
 }>()
-
-const getNewImage = () => {
-  if (props.image == null || props.image === 'null') {
-    return 'https://artworks.thetvdb.com/banners/images/missing/movie.jpg';
-  } else {
-    const newImage = `https://artworks.thetvdb.com${props.image}`;
-    return newImage;
-  }
-}
 
 const detailSerie = () => {
   if (props.mediaType === 'movies') {
@@ -50,7 +41,7 @@ const detailSerie = () => {
     <div class="category__image-container">
       <img 
         class="category__item-image" 
-        :src="getNewImage()" 
+        :src="image" 
         :alt="title" 
         loading="lazy"
         decoding="async"

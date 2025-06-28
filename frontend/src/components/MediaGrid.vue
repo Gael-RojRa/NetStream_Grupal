@@ -1,56 +1,63 @@
 <script setup lang="ts">
 import CategoryItem from '@/components/CategoryItem.vue';
-import { useInfiniteScroll } from '@/composables/useInfiniteScroll';
-import { useMediaStore } from '@/stores/mediaStore';
-import { onMounted, nextTick, computed } from 'vue';
-import { DynamicScroller } from 'vue-virtual-scroller';
+import { useSearchStore } from '@/stores/searchStore';
+import { onMounted, computed, watch } from 'vue';
+import { useRoute } from 'vue-router';
 
 interface Props {
   mediaType: 'movies' | 'series'
 }
 
 const props = defineProps<Props>()
-const mediaStore = useMediaStore()
+const searchStore = useSearchStore()
+const route = useRoute()
 
-const items = computed(() => 
-  props.mediaType === 'movies' ? mediaStore.movies : mediaStore.series
-)
-
-const loading = computed(() => 
-  props.mediaType === 'movies' ? mediaStore.moviesLoading : mediaStore.seriesLoading
-)
-
-const hasMore = computed(() => 
-  props.mediaType === 'movies' ? mediaStore.moviesHasMore : mediaStore.seriesHasMore
-)
-
-const loadFunction = computed(() => 
-  props.mediaType === 'movies' ? mediaStore.loadMovies : mediaStore.loadSeries
-)
-
-const mediaLabel = computed(() => 
-  props.mediaType === 'movies' ? 'películas' : 'series'
-)
-
-onMounted(() => {
-  if (items.value.length === 0) {
-    loadFunction.value()
+// Computed properties para determinar qué datos mostrar
+const displayItems = computed(() => {
+  // Si hay resultados de búsqueda, mostrarlos
+  if (searchStore.hasSearchResults) {
+    return searchStore.searchResults
+  }
+  
+  // Si no hay búsqueda, mostrar contenido aleatorio según el tipo
+  if (props.mediaType === 'movies') {
+    return searchStore.randomMovies
+  } else {
+    return searchStore.randomSeries
   }
 })
 
-useInfiniteScroll(loadFunction.value, 600)
+const isLoading = computed(() => {
+  if (searchStore.hasSearchResults) {
+    return searchStore.isSearching
+  }
+  return searchStore.isLoadingRandom
+})
 
-console.log(items)
+const mediaLabel = computed(() =>
+  props.mediaType === 'movies' ? 'películas' : 'series'
+)
+
+// Cargar contenido aleatorio cuando se monta el componente
+onMounted(() => {
+  if (props.mediaType === 'movies') {
+    searchStore.loadRandomMovies()
+  } else {
+    searchStore.loadRandomSeries()
+  }
+})
+
+// Observar cambios en la ruta para limpiar búsquedas cuando se cambia de tab
+watch(() => route.path, () => {
+  searchStore.clearSearch()
+}, { immediate: true })
+
 </script>
 
 <template>
-  <div v-if="loading && items.length === 0" class="initial-loading">
+  <div v-if="isLoading && displayItems.length === 0" class="initial-loading">
     <div class="loading-grid">
-      <div 
-        v-for="n in 12" 
-        :key="n"
-        class="loading-item"
-      >
+      <div v-for="n in 12" :key="n" class="loading-item">
         <div class="loading-image"></div>
         <div class="loading-title"></div>
       </div>
@@ -58,56 +65,87 @@ console.log(items)
   </div>
 
   <div v-else class="content-container">
-    <DynamicScroller 
-      class="scroller"
-      :items="items"
-      :key-field="'id'"
-      :minItemSize="352"
-      :item-size="352"
-      :buffer="200"
-    >
-      <template #default="{ item, index, active }">
-        <CategoryItem
-          :key="item.id"
-          :id="item.id"
-          :title="item.name"
-          :image="item.image"
-          :rating="item.score"
-          :slug="item.slug"
-          :media-type="props.mediaType"
-        />
-      </template>
-    </DynamicScroller>
-
-    <div v-if="loading && items.length > 0" class="load-more-loading">
-      <div class="spinner"></div>
-      <span class="loading-text">Cargando más {{ mediaLabel }}...</span>
+    <!-- Mostrar título de búsqueda si hay resultados -->
+    <div v-if="searchStore.hasSearchResults" class="search-results-header">
+      <h3>Resultados de búsqueda para "{{ searchStore.currentSearchQuery }}"</h3>
+      <p>{{ displayItems.length }} {{ mediaLabel }} encontradas</p>
     </div>
 
-    <div v-if="!hasMore && items.length > 0" class="no-more-content">
-      <div class="no-more-icon">📺</div>
-      <span class="no-more-text">No hay más {{ mediaLabel }} disponibles</span>
+    <!-- Mostrar título de contenido aleatorio si no hay búsqueda -->
+    <div v-else-if="displayItems.length > 0" class="random-content-header">
+      <h3>{{ mediaLabel.charAt(0).toUpperCase() + mediaLabel.slice(1) }} recomendadas</h3>
     </div>
 
-    <div v-if="!loading && items.length === 0" class="empty-state">
-      <div class="empty-icon">🎬</div>
-      <h3 class="empty-title">No se encontraron {{ mediaLabel }}</h3>
-      <p class="empty-description">Intenta recargar la página o vuelve más tarde</p>
+    <div class="content-grid">
+      <CategoryItem 
+        v-for="item in displayItems" 
+        :key="item.id" 
+        :id="item.id" 
+        :title="item.name" 
+        :image="item.image_url"
+        :rating="5" 
+        :slug="item.slug" 
+        :media-type="props.mediaType" 
+      />
+    </div>
+
+    <!-- Estado vacío cuando no hay resultados -->
+    <div v-if="!isLoading && displayItems.length === 0" class="empty-state">
+      <div class="empty-icon">🔍</div>
+      <h3 class="empty-title">
+        {{ searchStore.hasSearchResults ? 'No se encontraron resultados' : `No hay ${mediaLabel} disponibles` }}
+      </h3>
+      <p class="empty-description">
+        {{ searchStore.hasSearchResults 
+          ? `No se encontraron ${mediaLabel} que coincidan con "${searchStore.currentSearchQuery}"` 
+          : `Por el momento no hay ${mediaLabel} para mostrar. Intenta más tarde.` 
+        }}
+      </p>
     </div>
   </div>
 </template>
 
-<style scoped>
+<style>
 .content-container {
   width: 100%;
   height: 100dvh;
+  margin-bottom: 50px;
 }
 
 .scroller {
   height: 100%;
   align-items: center;
+  justify-content: center;
 }
 
+.content-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 145px); /* Columnas fijas de 145px */
+  gap: 6px;
+  width: 100%;
+  justify-content: start; /* Evita huecos a la derecha */
+  padding-bottom: 100px;
+}
+
+.search-results-header,
+.random-content-header {
+  padding: 0 0 12px 0 ;
+  text-align: left;
+}
+
+.search-results-header h3,
+.random-content-header h3 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #bfbdc2;
+}
+
+.search-results-header p,
+.random-content-header p {
+  font-size: 0.9rem;
+  color: #b0b0b0;
+  margin: 0;
+}
 
 .initial-loading {
   width: 100%;
@@ -149,15 +187,19 @@ console.log(items)
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.8;
   }
@@ -182,8 +224,13 @@ console.log(items)
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {

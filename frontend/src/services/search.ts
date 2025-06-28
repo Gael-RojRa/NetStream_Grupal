@@ -89,6 +89,10 @@ export interface Links {
 
 
 export async function searchMedia(query: string, type?: string, limit: number = 20): Promise<SearchResult> {
+  if (type === "movies") {
+    type = 'movie';
+  }
+  
   if (useMediaStore().token === null) {
     const newToken = await login();
     useMediaStore().token = newToken;
@@ -96,12 +100,9 @@ export async function searchMedia(query: string, type?: string, limit: number = 
 
   const params = new URLSearchParams({
     query,
-    limit: limit.toString()
+    limit: limit.toString(),
+    type: type || 'all',
   });
-
-  if (type && type !== 'all') {
-    params.append('type', type);
-  }
 
   const response = await api.get<SearchResult>(`search?${params.toString()}`);
   return response.data;

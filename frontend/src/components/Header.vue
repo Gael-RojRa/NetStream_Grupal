@@ -1,18 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { searchMedia, type SearchResult, type Datum } from '@/services/search'
-import { useRouter } from 'vue-router'
+import { useSearchStore } from '@/stores/searchStore'
 
 const searchValue = ref('')
 const isInputFocused = ref(false)
-const searchResults = ref<Datum[]>([])
-const isSearching = ref(false)
-const searchType = ref<'all' | 'movie' | 'series'>('all')
 const showTypeDropdown = ref(false)
-const showSearchResults = ref(false)
 const searchTimeout = ref<number | null>(null)
 
-const router = useRouter()
+const searchStore = useSearchStore()
 
 const onInputFocus = () => {
   isInputFocused.value = true
@@ -22,15 +17,13 @@ const onInputFocus = () => {
 const onInputBlur = () => {
   setTimeout(() => {
     isInputFocused.value = false
-    showSearchResults.value = false
     document.body.classList.remove('keyboard-visible')
   }, 200)
 }
 
 const clearSearch = () => {
   searchValue.value = ''
-  searchResults.value = []
-  showSearchResults.value = false
+  searchStore.clearSearch()
   if (searchTimeout.value) {
     clearTimeout(searchTimeout.value)
   }
@@ -46,55 +39,24 @@ const focusSearchInput = () => {
   })
 }
 
+
 const performSearch = async () => {
   if (!searchValue.value.trim()) {
-    searchResults.value = []
-    showSearchResults.value = false
+    searchStore.clearSearch()
     return
   }
 
-  isSearching.value = true
-  try {
-    const result = await searchMedia(searchValue.value.trim(), searchType.value === 'all' ? undefined : searchType.value, 15)
-    searchResults.value = result.data
-    showSearchResults.value = true
-  } catch (error) {
-    console.error('Error en búsqueda:', error)
-    searchResults.value = []
-  } finally {
-    isSearching.value = false
+  // Determinar el tipo de búsqueda basado en la ruta actual
+  const currentPath = window.location.pathname
+  let searchTypeParam: 'movies' | 'series' | 'all' = 'all'
+  
+  if (currentPath.includes('/shows/movies')) {
+    searchTypeParam = 'movies'
+  } else if (currentPath.includes('/shows/series')) {
+    searchTypeParam = 'series'
   }
-}
 
-const goToDetail = (item: Datum) => {
-  const routeName = item.type === 'movie' ? 'movie-details' : 'serie-details'
-  router.push({
-    name: routeName,
-    params: { slug: item.slug }
-  })
-  clearSearch()
-}
-
-const searchTypeOptions = [
-  { value: 'all', label: 'Todo' },
-  { value: 'movie', label: 'Películas' },
-  { value: 'series', label: 'Series' }
-]
-
-const selectSearchType = (type: 'all' | 'movie' | 'series') => {
-  searchType.value = type
-  showTypeDropdown.value = false
-  if (searchValue.value.trim()) {
-    performSearch()
-  }
-}
-
-const toggleTypeDropdown = () => {
-  showTypeDropdown.value = !showTypeDropdown.value
-}
-
-const closeTypeDropdown = () => {
-  showTypeDropdown.value = false
+  await searchStore.performSearch(searchValue.value.trim(), searchTypeParam)
 }
 
 watch(searchValue, () => {
@@ -111,9 +73,6 @@ const handleClickOutside = (event: Event) => {
   const target = event.target as HTMLElement
   if (!target.closest('.header__search-container') && !target.closest('.search-type-dropdown')) {
     showTypeDropdown.value = false
-    if (!target.closest('.search-results')) {
-      showSearchResults.value = false
-    }
   }
 }
 
@@ -162,26 +121,6 @@ onUnmounted(() => {
 
     <!-- Estado expandido: barra de búsqueda completa -->
     <div v-else class="header__search-container" :class="{ 'expanded': isInputFocused || searchValue }">
-      <!-- Selector de tipo de búsqueda -->
-      <div class="search-type-selector" @click="toggleTypeDropdown">
-        <span class="search-type-text">{{ searchTypeOptions.find(opt => opt.value === searchType)?.label }}</span>
-        <svg class="search-type-arrow" :class="{ 'rotated': showTypeDropdown }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="6,9 12,15 18,9"></polyline>
-        </svg>
-        
-        <!-- Dropdown de tipos -->
-        <div v-if="showTypeDropdown" class="search-type-dropdown">
-          <div 
-            v-for="option in searchTypeOptions" 
-            :key="option.value"
-            class="search-type-option"
-            :class="{ 'active': option.value === searchType }"
-            @click.stop="selectSearchType(option.value as 'all' | 'movie' | 'series')"
-          >
-            {{ option.label }}
-          </div>
-        </div>
-      </div>
 
       <div class="header__search-icon-container">
         <img
@@ -208,39 +147,6 @@ onUnmounted(() => {
         </svg>
       </div>
 
-      <!-- Resultados de búsqueda -->
-      <div v-if="showSearchResults" class="search-results">
-        <div v-if="isSearching" class="search-loading">
-          <div class="search-spinner"></div>
-          <span>Buscando...</span>
-        </div>
-        
-        <div v-else-if="searchResults.length === 0" class="search-no-results">
-          <span>No se encontraron resultados</span>
-        </div>
-        
-        <div v-else class="search-results-list">
-          <div 
-            v-for="result in searchResults" 
-            :key="result.id"
-            class="search-result-item"
-            @click="goToDetail(result)"          >
-            <img 
-              class="search-result-image" 
-              :src="result.image_url || result.thumbnail || '/placeholder-image.jpg'" 
-              :alt="result.name"
-              @error="(e) => (e.target as HTMLImageElement).src = '/placeholder-image.jpg'"
-            />
-            <div class="search-result-info">
-              <h4 class="search-result-title">{{ result.name }}</h4>
-              <div class="search-result-meta">
-                <span class="search-result-type">{{ result.type === 'movie' ? 'Película' : 'Serie' }}</span>
-                <span v-if="result.year" class="search-result-year">{{ result.year }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
     
     <!-- Ícono de perfil: se oculta cuando está buscando -->
