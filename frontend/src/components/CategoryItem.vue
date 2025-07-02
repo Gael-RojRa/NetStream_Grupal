@@ -58,6 +58,7 @@ const detailSerie = () => {
   flex-direction: column;
   flex: 1 1 145px;
   max-width: 200px;
+  min-width: 145px;
   transition: all 0.3s ease-out;
   cursor: pointer;
 }

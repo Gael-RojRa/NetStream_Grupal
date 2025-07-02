@@ -1,8 +1,9 @@
-import api from './api';
-import type { Serie } from '../types/serie'
-import type { SerieExtended } from '../types/serieExtended';
-import { login } from './auth'
-import { useMediaStore } from '@/stores/mediaStore';
+import api from "./api";
+import type { Serie } from "../types/serie";
+import type { SerieExtended } from "../types/serieExtended";
+import { login } from "./auth";
+import { useMediaStore } from "@/stores/mediaStore";
+import { processMediaArray } from '@/utils/imageUrl';
 
 export async function fetchSeries(page: number): Promise<Serie> {
   if (useMediaStore().token === null) {
@@ -15,6 +16,10 @@ export async function fetchSeries(page: number): Promise<Serie> {
   }
 
   const response = await api.get<Serie>(`series?page=${page}`);
+
+  if (response.data.data && Array.isArray(response.data.data)) {
+    response.data.data = processMediaArray(response.data.data);
+  }
   return response.data;
 }
 

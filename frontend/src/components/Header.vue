@@ -113,7 +113,7 @@ const handleImageError = (event: Event) => {
         </div>
         
         <!-- Results list -->
-        <div v-else class="search-results-list">
+        <!-- <div v-else class="search-results-list">
           <div 
             v-for="result in searchResults" 
             :key="result.id"
@@ -136,7 +136,7 @@ const handleImageError = (event: Event) => {
               </div>
             </div>
           </div>
-        </div>
+        </div> -->
       </div>
 
     </div>

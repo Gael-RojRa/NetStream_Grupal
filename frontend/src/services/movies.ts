@@ -3,6 +3,8 @@ import type { Movie } from '../types/movie';
 import type { MovieExtended } from '../types/movieExtended';
 import { useMediaStore } from '@/stores/mediaStore';
 import { login } from './auth';
+import { processMediaArray } from '@/utils/imageUrl';
+
 
 export async function fetchMovies(page: number): Promise<Movie> {
   if (useMediaStore().token === null) {
@@ -15,6 +17,10 @@ export async function fetchMovies(page: number): Promise<Movie> {
   }
 
   const response = await api.get<Movie>(`movies?page=${page}`);
+
+  if (response.data.data && Array.isArray(response.data.data)) {
+    response.data.data = processMediaArray(response.data.data);
+  }
   return response.data;
 }
 

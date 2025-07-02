@@ -101,59 +101,59 @@ app.get('/users', { preHandler: auth }, async (_req, reply) => {
 
 // Devuelve, para una lista de IDs, sus flags watched/favorite/watchlist
 app.post(
-  '/movies/status',
+  '/media/status',
   { preHandler: auth },
   async (req, reply) => {
-    const { movieIds } = req.body
-    if (!Array.isArray(movieIds) || movieIds.length === 0) {
+    const { mediaIds } = req.body
+    if (!Array.isArray(mediaIds) || mediaIds.length === 0) {
       return reply.send([])
     }
 
     // Prepara placeholders para IN (...)
-    const placeholders = movieIds.map(() => '?').join(',')
+    const placeholders = mediaIds.map(() => '?').join(',')
 
     const sql = `
-      SELECT movie_id,
+      SELECT media_id,
              MAX(watched)   AS watched,
              MAX(favorite)  AS favorite,
              MAX(watchlist) AS watchlist
       FROM (
-        SELECT movie_id, 1 AS watched, 0 AS favorite, 0 AS watchlist
+        SELECT media_id, 1 AS watched, 0 AS favorite, 0 AS watchlist
         FROM watched
-        WHERE user_id = ? AND movie_id IN (${placeholders})
+        WHERE user_id = ? AND media_id IN (${placeholders})
         UNION ALL
-        SELECT movie_id, 0, 1, 0
+        SELECT media_id, 0, 1, 0
         FROM favorites
-        WHERE user_id = ? AND movie_id IN (${placeholders})
+        WHERE user_id = ? AND media_id IN (${placeholders})
         UNION ALL
-        SELECT movie_id, 0, 0, 1
+        SELECT media_id, 0, 0, 1
         FROM watchlist
-        WHERE user_id = ? AND movie_id IN (${placeholders})
+        WHERE user_id = ? AND media_id IN (${placeholders})
       )
-      GROUP BY movie_id;
+      GROUP BY media_id;
     `
 
     const args = [
       req.user.sub,
-      ...movieIds,
+      ...mediaIds,
       req.user.sub,
-      ...movieIds,
+      ...mediaIds,
       req.user.sub,
-      ...movieIds
+      ...mediaIds
     ]
 
     try {
       const { rows } = await db.execute({ sql, args })
       const statusMap = new Map()
       rows.forEach(r => {
-        statusMap.set(r.movie_id, {
+        statusMap.set(r.media_id, {
           watched: Boolean(r.watched),
           favorite: Boolean(r.favorite),
           watchlist: Boolean(r.watchlist)
         })
       })
 
-      const result = movieIds.map(id => ({
+      const result = mediaIds.map(id => ({
         id,
         ...(statusMap.get(id) || {
           watched: false,
@@ -168,6 +168,130 @@ app.post(
     }
   }
 )
+
+
+
+// Agregar una película a "watched"
+app.post(
+  '/media/watched',
+  { preHandler: auth },
+  async (req, reply) => {
+    const { media_id } = req.body
+    if (!media_id) {
+      return reply.code(400).send({ error: 'media_id es requerido' })
+    }
+    try {
+      await db.execute({
+        sql: `
+          INSERT OR IGNORE INTO watched (user_id, media_id)
+          VALUES (?, ?)
+        `,
+        args: [req.user.sub, media_id]
+      })
+      reply.send({ id: media_id, watched: true })
+    } catch (err) {
+      reply.code(500).send({ error: err.message })
+    }
+  }
+)
+
+// Agregar una película a "favorites"
+app.post(
+  '/media/favorite',
+  { preHandler: auth },
+  async (req, reply) => {
+    const { media_id } = req.body
+    if (!media_id) {
+      return reply.code(400).send({ error: 'media_id es requerido' })
+    }
+    try {
+      await db.execute({
+        sql: `
+          INSERT OR IGNORE INTO favorites (user_id, media_id)
+          VALUES (?, ?)
+        `,
+        args: [req.user.sub, media_id]
+      })
+      reply.send({ id: media_id, favorite: true })
+    } catch (err) {
+      reply.code(500).send({ error: err.message })
+    }
+  }
+)
+
+
+app.post(
+  '/media/watchlist',
+  { preHandler: auth },
+  async (req, reply) => {
+    const { media_id } = req.body
+    if (!media_id) {
+      return reply.code(400).send({ error: 'media_id es requerido' })
+    }
+    try {
+      await db.execute({
+        sql: `
+          INSERT OR IGNORE INTO watchlist (user_id, media_id)
+          VALUES (?, ?)
+        `,
+        args: [req.user.sub, media_id]
+      })
+      reply.send({ id: media_id, watchlist: true })
+    } catch (err) {
+      reply.code(500).send({ error: err.message })
+    }
+  }
+)
+
+
+app.delete(
+  '/media/watched',
+  { preHandler: auth },
+  async (req, reply) => {
+    const { media_id } = req.body
+    await db.execute({
+      sql: `
+        DELETE FROM watched
+        WHERE user_id = ? AND media_id = ?
+      `,
+      args: [req.user.sub, media_id]
+    })
+    reply.send({ id: media_id, watched: false })
+  }
+)
+
+app.delete(
+  '/media/watchlist',
+  { preHandler: auth },
+  async (req, reply) => {
+    const { media_id } = req.body
+    await db.execute({
+      sql: `
+        DELETE FROM watchlist
+        WHERE user_id = ? AND media_id = ?
+      `,
+      args: [req.user.sub, media_id]
+    })
+    reply.send({ id: media_id, watchlist: false })
+  }
+)
+
+app.delete(
+  '/media/favorite',
+  { preHandler: auth },
+  async (req, reply) => {
+    const { media_id } = req.body
+    await db.execute({
+      sql: `
+        DELETE FROM favorites
+        WHERE user_id = ? AND media_id = ?
+      `,
+      args: [req.user.sub, media_id]
+    })
+    reply.send({ id: media_id, favorite: false })
+  }
+)
+
 
 const port = process.env.PORT || 3000
 app.listen({ port }).then(() => {
