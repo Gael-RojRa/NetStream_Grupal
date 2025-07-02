@@ -17,9 +17,8 @@ import { RouterView } from "vue-router";
   display: flex;
   flex-direction: column;
   background-color: #1b1b1f;
-  padding: 15px;
+  padding: 20px;
   margin: 8px;
   min-height: 90dvh;
-  padding-top: 65px;
 }
 </style>

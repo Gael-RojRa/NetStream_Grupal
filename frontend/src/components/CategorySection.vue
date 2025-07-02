@@ -124,11 +124,26 @@ onMounted(async () => {
   flex-wrap: nowrap;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: #bac3ff #2c2d38;
 }
 
 .category__grid::-webkit-scrollbar {
-  display: none;
+  height: 8px;
+}
+
+.category__grid::-webkit-scrollbar-track {
+  background: #2c2d38;
+  border-radius: 4px;
+}
+
+.category__grid::-webkit-scrollbar-thumb {
+  background: #bac3ff;
+  border-radius: 4px;
+}
+
+.category__grid::-webkit-scrollbar-thumb:hover {
+  background: #a8b3ff;
 }
 
 /* Loading styles */
