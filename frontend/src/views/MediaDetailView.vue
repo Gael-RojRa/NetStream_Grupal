@@ -116,6 +116,60 @@ const getArtworks = computed(() => {
 const getStatus = computed(() => {
   return mediaData.value?.status.name || {};
 });
+
+const getMobileImage = computed(() => {
+  if (!mediaData.value?.artworks) return mediaData.value?.image || '';
+
+  
+  const verticalImages = mediaData.value.artworks.filter(artwork =>
+    artwork.height > artwork.width
+  );
+
+  
+  const priorityVertical = verticalImages.find(artwork =>
+    [14, 3, 7, 8].includes(artwork.type) 
+  );
+
+  const anyVertical = verticalImages[0]; 
+
+  return priorityVertical?.image || anyVertical?.image || mediaData.value?.image || '';
+});
+
+const getDesktopImage = computed(() => {
+  if (!mediaData.value?.artworks) return mediaData.value?.image || '';
+
+ 
+  const horizontalImages = mediaData.value.artworks.filter(artwork =>
+    artwork.width > artwork.height
+  );
+
+  
+  const priorityHorizontal = horizontalImages.find(artwork =>
+    [1, 2, 3, 15, 16].includes(artwork.type) 
+  );
+
+  const anyHorizontal = horizontalImages[0]; 
+
+  return priorityHorizontal?.image || anyHorizontal?.image || mediaData.value?.image || '';
+});
+
+const fallbackAvatar = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="90" height="90" viewBox="0 0 24 24" fill="%236c757d"><circle cx="12" cy="8" r="4"/><path d="M12 14c-4.418 0-8 1.79-8 4v2h16v-2c0-2.21-3.582-4-8-4z"/></svg>';
+
+const getActorImg = (character: { personImgURL?: string }) => {
+  return character.personImgURL && character.personImgURL.trim() !== ''
+    ? character.personImgURL
+    : fallbackAvatar;
+};
+
+const onImageError = (event: Event) => {
+  const target = event.target as HTMLImageElement | null;
+  if (target && target.src !== fallbackAvatar) {
+    target.src = fallbackAvatar;
+  }
+};
+
+
+
 </script>
 
 <template>
@@ -146,16 +200,19 @@ const getStatus = computed(() => {
   <!-- Content -->
   <div v-else-if="mediaData" class="media-details">
     <div class="media-details__poster">
-      <img class="poster__img" :src="mediaData.image" :alt="mediaData.name" />
+      <!-- Imagen para móvil (vertical) -->
+      <img class="poster__img poster__img--mobile" :src="getMobileImage" :alt="mediaData.name" loading="lazy" />
+      <!-- Imagen para desktop (horizontal) -->
+      <img class="poster__img poster__img--desktop" :src="getDesktopImage" :alt="mediaData.name" loading="lazy" />
     </div>
 
     <div class="media-details__content">
       <div class="media-details__network" v-if="getNetworkInfo">
         <span class="network__name">{{ getNetworkInfo.name }}</span>
       </div>
-      
+
       <h1 class="media-title">{{ mediaData.name }}</h1>
-      
+
       <div class="general-info">
         <span class="general-info__text" v-if="getReleaseYear">{{ getReleaseYear }}</span>
         <span class="general-info__text" v-if="getSeasonInfo">{{ getSeasonInfo }}</span>
@@ -163,19 +220,19 @@ const getStatus = computed(() => {
         <span class="general-info__text" v-if="getStatus">{{ getStatus }}</span>
         <span class="general-info__text">{{ mediaData.score }}</span>
       </div>
-      
+
       <div class="media-genre" v-if="getGenres.length">
         <span class="media-genre__text" v-for="genre in getGenres" :key="genre.id">
           {{ genre.name }}
         </span>
       </div>
-      
+
       <div class="media-description" v-if="getOverview">
         <p class="media-description__text">{{ getOverview }}</p>
       </div>
-      
+
       <hr>
-      
+
       <div class="media-Control">
         <button class="media-Control__button">
           <img class="control-icon" src="../images/watchlist.svg" alt="Watchlist" />
@@ -190,53 +247,49 @@ const getStatus = computed(() => {
           <!-- <span class="control-button__text">Favorite</span> -->
         </button>
       </div>
-      
+
       <button class="play-button">
         <img class="play-button__img" src="../images/watch.svg" alt="Reproducir" />
         <span class="play-button__text">Reproducir</span>
       </button>
-      
+
       <hr>
-      
+
       <div class="media-cast" v-if="getCharacters.length">
         <h3>Reparto</h3>
         <div class="media-cast__actors">
           <div class="media-cast__actor" v-for="character in getCharacters.slice(0, 10)" :key="character.id">
-            <img class="actor__img" :src="character.personImgURL" :alt="character.personName" />
+          <img
+  class="actor__img"
+  :src="getActorImg(character)"
+  :alt="character.personName"
+  @error="onImageError"
+/>
+
+
+
             <span class="actor__name">{{ character.personName }}</span>
           </div>
         </div>
       </div>
-      
+
       <hr v-if="getCharacters.length">
-      
+
       <div class="media-trailers" v-if="getTrailers.length">
         <h3>Tráilers</h3>
         <div class="media-trailers__content">
-          <iframe
-            v-for="trailer in getTrailers.slice(0, 3)"
-            :key="trailer.id"
-            :src="getYouTubeEmbedUrl(trailer.url)"
-            :title="trailer.name"
-            frameborder="0"
-            allowfullscreen
-            class="trailer-iframe"
-          ></iframe>
+          <iframe v-for="trailer in getTrailers.slice(0, 3)" :key="trailer.id" :src="getYouTubeEmbedUrl(trailer.url)"
+            :title="trailer.name" frameborder="0" allowfullscreen class="trailer-iframe"></iframe>
         </div>
       </div>
-      
+
       <hr v-if="getTrailers.length">
-      
+
       <div class="media-images" v-if="getArtworks.length">
         <h3>Imágenes</h3>
         <div class="media-images__content">
-          <img
-            v-for="artwork in getArtworks.slice(0, 6)"
-            :key="artwork.id"
-            class="media-images__image"
-            :src="artwork.image"
-            :alt="`Imagen de ${mediaData.name}`"
-          />
+          <img v-for="artwork in getArtworks.slice(0, 6)" :key="artwork.id" class="media-images__image"
+            :src="artwork.image" :alt="`Imagen de ${mediaData.name}`" />
         </div>
       </div>
     </div>
@@ -338,15 +391,19 @@ const getStatus = computed(() => {
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.8;
   }
@@ -411,10 +468,20 @@ const getStatus = computed(() => {
   width: 100%;
   height: 360px;
   object-fit: cover;
-  object-position: top;
+  object-position: center;
   display: block;
+  background-color: transparent;
   -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
   mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+}
+
+/* Móvil: mostrar imagen vertical */
+.poster__img--mobile {
+  display: block;
+}
+
+.poster__img--desktop {
+  display: none;
 }
 
 .media-details__content {
@@ -676,5 +743,21 @@ hr {
   border-radius: 10px;
   flex-shrink: 0;
   border: 2px solid #3a3b47;
+}
+
+/* Responsive Desktop */
+@media (min-width: 768px) {
+  .play-button {
+    width: 25%;
+  }
+
+  /* Desktop: mostrar imagen horizontal */
+  .poster__img--mobile {
+    display: none;
+  }
+
+  .poster__img--desktop {
+    display: block;
+  }
 }
 </style>
