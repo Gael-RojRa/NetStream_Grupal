@@ -54,3 +54,9 @@ coverage
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+
+.venv/
+__pycache__/
+*.db
+.env

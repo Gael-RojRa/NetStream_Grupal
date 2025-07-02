@@ -1,109 +1,86 @@
 import api from './api';
 import { useMediaStore } from '@/stores/mediaStore';
 import { login } from './auth';
+import { Validator } from '@/utils/validators';
+import { logger } from '@/services/logger';
+import type { SearchResult } from '../types/searchResult';
 
-export interface SearchResult {
-  status: string;
-  data:   Datum[];
-  links:  Links;
+interface SearchParams {
+  query: string
+  type?: 'movies' | 'series' | 'all'
+  limit?: number
+  page?: number
 }
 
-export interface Datum {
-  objectID:         string;
-  aliases?:         string[];
-  country:          string;
-  id:               string;
-  image_url:        string;
-  name:             string;
-  first_air_time:   Date;
-  overview?:        string;
-  primary_language: PrimaryLanguage;
-  primary_type:     Type;
-  status:           Status;
-  type:             Type;
-  tvdb_id:          string;
-  year:             string;
-  slug:             string;
-  overviews?:       Overviews;
-  translations:     Overviews;
-  network?:         string;
-  remote_ids?:      RemoteID[];
-  thumbnail?:       string;
+export class SearchService {
+  private readonly DEFAULT_LIMIT = 20
+  private readonly MAX_LIMIT = 100
+
+  private validateSearchParams(params: SearchParams): void {
+    Validator.validateSearchQuery(params.query)
+    
+    if (params.limit) {
+      Validator.validateLimit(params.limit, this.MAX_LIMIT)
+    }
+    
+    if (params.page) {
+      Validator.validatePage(params.page)
+    }
+  }
+
+  private normalizeSearchType(type?: string): string {
+    const typeMap: Record<string, string> = {
+      'movies': 'movie',
+      'series': 'series'
+    }
+    
+    return typeMap[type || ''] || 'all'
+  }
+
+  private buildSearchParams(params: SearchParams): URLSearchParams {
+    return new URLSearchParams({
+      query: params.query.trim(),
+      type: this.normalizeSearchType(params.type),
+      limit: String(params.limit || this.DEFAULT_LIMIT),
+      ...(params.page && { page: String(params.page) })
+    })
+  }
+
+  private async ensureAuthentication(): Promise<void> {
+    const mediaStore = useMediaStore()
+    if (mediaStore.token === null) {
+      logger.info('Token not found, authenticating...')
+      const newToken = await login()
+      mediaStore.token = newToken
+      logger.info('Authentication successful')
+    }
+  }
+
+  async searchMedia(params: SearchParams): Promise<SearchResult> {
+    try {
+      this.validateSearchParams(params)
+      await this.ensureAuthentication()
+      
+      const searchParams = this.buildSearchParams(params)
+      const endpoint = `search?${searchParams.toString()}`
+      
+      logger.info(`Searching for "${params.query}" with type "${params.type || 'all'}"`)
+      
+      const response = await api.get<SearchResult>(endpoint)
+      
+      logger.info(`Search completed. Found ${response.data?.data?.length || 0} results`)
+      
+      return response.data
+    } catch (error) {
+      logger.error('Search failed:', error)
+      throw error
+    }
+  }
 }
 
-export interface Overviews {
-  ara?:  string;
-  ces?:  string;
-  dan?:  string;
-  deu?:  string;
-  ell?:  string;
-  eng?:  string;
-  fin?:  string;
-  fra?:  string;
-  heb?:  string;
-  hun?:  string;
-  ita?:  string;
-  nld?:  string;
-  pol?:  string;
-  por?:  string;
-  pt?:   string;
-  rus?:  string;
-  spa?:  string;
-  swe?:  string;
-  tur?:  string;
-  ukr?:  string;
-  zho?:  string;
-  zhtw?: string;
-  tha?:  string;
-}
+export const searchService = new SearchService()
 
-export enum PrimaryLanguage {
-  Eng = "eng",
-  Tha = "tha",
-}
-
-export enum Type {
-  Series = "series",
-  Movie = "movie",
-  All = "all",
-}
-
-export interface RemoteID {
-  id:         string;
-  type:       number;
-  sourceName: string;
-}
-
-export enum Status {
-  Continuing = "Continuing",
-  Ended = "Ended",
-}
-
-export interface Links {
-  prev:        null;
-  self:        string;
-  next:        string;
-  total_items: number;
-  page_size:   number;
-}
-
-
+// Mantener compatibilidad con la función anterior
 export async function searchMedia(query: string, type?: string, limit: number = 20): Promise<SearchResult> {
-  if (type === "movies") {
-    type = 'movie';
-  }
-  
-  if (useMediaStore().token === null) {
-    const newToken = await login();
-    useMediaStore().token = newToken;
-  }
-
-  const params = new URLSearchParams({
-    query,
-    limit: limit.toString(),
-    type: type || 'all',
-  });
-
-  const response = await api.get<SearchResult>(`search?${params.toString()}`);
-  return response.data;
+  return searchService.searchMedia({ query, type: type as any, limit })
 }

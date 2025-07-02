@@ -1,14 +1,36 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { useSearchStore } from '@/stores/searchStore'
+import { ref } from 'vue'
+import { useSearch } from '@/composables/useSearch'
+import { useKeyboardManager } from '@/composables/useKeyboardManager'
+import { useClickOutside } from '@/composables/useClickOutside'
+import { navigationService } from '@/services/navigationService'
+import { config } from '@/config'
+import type { Datum } from '@/types/searchResult'
 
-const searchValue = ref('')
-const isInputFocused = ref(false)
+// Estados locales simples
 const showTypeDropdown = ref(false)
-const searchTimeout = ref<number | null>(null)
 
-const searchStore = useSearchStore()
+// Composables con responsabilidades específicas
+const {
+  searchValue,
+  isInputFocused,
+  clearSearch,
+  searchResults,
+  isSearching,
+  hasSearchResults
+} = useSearch()
 
+const { isKeyboardVisible } = useKeyboardManager()
+
+// Manejo de clicks fuera del componente
+useClickOutside(
+  () => {
+    showTypeDropdown.value = false
+  },
+  ['.header__search-container', '.search-type-dropdown']
+)
+
+// Métodos del componente
 const onInputFocus = () => {
   isInputFocused.value = true
   document.body.classList.add('keyboard-visible')
@@ -21,91 +43,21 @@ const onInputBlur = () => {
   }, 200)
 }
 
-const clearSearch = () => {
-  searchValue.value = ''
-  searchStore.clearSearch()
-  if (searchTimeout.value) {
-    clearTimeout(searchTimeout.value)
-  }
-}
-
-const focusSearchInput = () => {
+const focusSearchInput = async () => {
   isInputFocused.value = true
-  nextTick(() => {
-    const input = document.querySelector('.header__input') as HTMLInputElement
-    if (input) {
-      input.focus()
-    }
-  })
+  await navigationService.focusSearchInput()
 }
 
-
-const performSearch = async () => {
-  if (!searchValue.value.trim()) {
-    searchStore.clearSearch()
-    return
-  }
-
-  // Determinar el tipo de búsqueda basado en la ruta actual
-  const currentPath = window.location.pathname
-  let searchTypeParam: 'movies' | 'series' | 'all' = 'all'
-  
-  if (currentPath.includes('/shows/movies')) {
-    searchTypeParam = 'movies'
-  } else if (currentPath.includes('/shows/series')) {
-    searchTypeParam = 'series'
-  }
-
-  await searchStore.performSearch(searchValue.value.trim(), searchTypeParam)
+const navigateToResult = (result: Datum) => {
+  // Aquí puedes agregar la lógica de navegación
+  console.log('Navegando a:', result)
+  // Ejemplo: router.push({ name: 'media-detail', params: { slug: result.slug } })
 }
 
-watch(searchValue, () => {
-  if (searchTimeout.value) {
-    clearTimeout(searchTimeout.value)
-  }
-  
-  searchTimeout.value = setTimeout(() => {
-    performSearch()
-  }, 300)
-})
-
-const handleClickOutside = (event: Event) => {
-  const target = event.target as HTMLElement
-  if (!target.closest('.header__search-container') && !target.closest('.search-type-dropdown')) {
-    showTypeDropdown.value = false
-  }
+const handleImageError = (event: Event) => {
+  const img = event.target as HTMLImageElement
+  img.src = config.images.placeholderUrl
 }
-
-const handleViewportChange = () => {
-  const viewportHeight = window.visualViewport?.height || window.innerHeight
-  const windowHeight = window.screen.height
-  
-  if (viewportHeight < windowHeight * 0.75) {
-    document.body.classList.add('keyboard-visible')
-  } else {
-    document.body.classList.remove('keyboard-visible')
-  }
-}
-
-onMounted(() => {
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', handleViewportChange)
-  }
-  
-  document.addEventListener('click', handleClickOutside)
-})
-
-onUnmounted(() => {
-  if (window.visualViewport) {
-    window.visualViewport.removeEventListener('resize', handleViewportChange)
-  }
-  document.removeEventListener('click', handleClickOutside)
-  document.body.classList.remove('keyboard-visible')
-  
-  if (searchTimeout.value) {
-    clearTimeout(searchTimeout.value)
-  }
-})
 </script>
 
 <template>
@@ -145,6 +97,46 @@ onUnmounted(() => {
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
+      </div>
+
+      <!-- Resultados de búsqueda -->
+      <div v-if="(isInputFocused || searchValue) && (isSearching || hasSearchResults)" class="search-results">
+        <!-- Loading spinner -->
+        <div v-if="isSearching" class="search-loading">
+          <div class="search-spinner"></div>
+          <span>Buscando...</span>
+        </div>
+        
+        <!-- No results -->
+        <div v-else-if="!hasSearchResults && !isSearching" class="search-no-results">
+          No se encontraron resultados para "{{ searchValue }}"
+        </div>
+        
+        <!-- Results list -->
+        <div v-else class="search-results-list">
+          <div 
+            v-for="result in searchResults" 
+            :key="result.id"
+            class="search-result-item"
+            @click="navigateToResult(result)"
+          >
+            <img 
+              :src="result.image_url || result.thumbnail" 
+              :alt="result.name"
+              class="search-result-image"
+              @error="handleImageError"
+            />
+            <div class="search-result-info">
+              <h4 class="search-result-title">{{ result.name }}</h4>
+              <div class="search-result-meta">
+                <span class="search-result-type">
+                  {{ result.type === 'movie' ? 'Película' : 'Serie' }}
+                </span>
+                <span v-if="result.year" class="search-result-year">{{ result.year }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
     </div>

@@ -1,4 +1,4 @@
-import type { SearchResult } from './search';
+import type { SearchResult } from '../types/searchResult';
 import { searchMedia } from './search';
 
 export async function getRandomMovies(limit: number = 10): Promise<SearchResult> {
@@ -6,8 +6,8 @@ export async function getRandomMovies(limit: number = 10): Promise<SearchResult>
   const randomTerms = ['action', 'drama', 'comedy', 'thriller', 'romance', 'sci-fi', 'horror', 'adventure'];
   const randomTerm = randomTerms[Math.floor(Math.random() * randomTerms.length)];
 
-  const reseult = await searchMedia(randomTerm, 'movie', limit)
-  return reseult;
+  const result = await searchMedia(randomTerm, 'movies', limit)
+  return result;
 }
 
 export async function getRandomSeries(limit: number = 10): Promise<SearchResult> {
@@ -15,6 +15,6 @@ export async function getRandomSeries(limit: number = 10): Promise<SearchResult>
   const randomTerms = ['drama', 'comedy', 'action', 'thriller', 'romance', 'sci-fi', 'horror', 'adventure'];
   const randomTerm = randomTerms[Math.floor(Math.random() * randomTerms.length)];
 
-  const reseult = await searchMedia(randomTerm, 'series', limit)
-  return reseult;
+  const result = await searchMedia(randomTerm, 'series', limit)
+  return result;
 } 
