@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { RouterView } from "vue-router";
+import { useAppInitialization } from "@/composables/useAppInitialization";
 
+// Inicializar la aplicación
+useAppInitialization();
 </script>
 
 <template>
@@ -17,7 +20,7 @@ import { RouterView } from "vue-router";
   display: flex;
   flex-direction: column;
   background-color: #1b1b1f;
-  padding: 20px;
+  padding: 15px;
   margin: 8px;
   min-height: 90dvh;
 }

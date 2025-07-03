@@ -46,3 +46,13 @@ export async function fetchMovieBySlug(slug: string): Promise<MovieExtended> {
   const response = await api.get<MovieExtended>(`movies/${id}/extended`);
   return response.data;
 }
+
+export async function fetchMovieById(id: number): Promise<any> {
+  if (useMediaStore().token === null) {
+    const newToken = await login();
+    useMediaStore().token = newToken;
+  }
+
+  const response = await api.get(`movies/${id}`);
+  return response.data;
+}

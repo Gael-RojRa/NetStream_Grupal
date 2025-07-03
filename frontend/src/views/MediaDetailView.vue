@@ -6,8 +6,13 @@ import { ref, computed } from 'vue';
 import { fetchSerieBySlug } from '@/services/series';
 import { fetchMovieBySlug } from '@/services/movies';
 import { onMounted } from 'vue';
+import { useAuthStore } from '@/stores/authStore';
+import { useUserListsStore } from '@/stores/userListsStore';
+import MediaActions from '@/components/MediaActions.vue';
 
 const route = useRoute();
+const authStore = useAuthStore();
+const userListsStore = useUserListsStore();
 const serie = ref<SerieExtended | null>(null);
 const movie = ref<MovieExtended | null>(null);
 const loading = ref(true);
@@ -120,17 +125,17 @@ const getStatus = computed(() => {
 const getMobileImage = computed(() => {
   if (!mediaData.value?.artworks) return mediaData.value?.image || '';
 
-  
+
   const verticalImages = mediaData.value.artworks.filter(artwork =>
     artwork.height > artwork.width
   );
 
-  
+
   const priorityVertical = verticalImages.find(artwork =>
-    [14, 3, 7, 8].includes(artwork.type) 
+    [14, 3, 7, 8].includes(artwork.type)
   );
 
-  const anyVertical = verticalImages[0]; 
+  const anyVertical = verticalImages[0];
 
   return priorityVertical?.image || anyVertical?.image || mediaData.value?.image || '';
 });
@@ -138,17 +143,17 @@ const getMobileImage = computed(() => {
 const getDesktopImage = computed(() => {
   if (!mediaData.value?.artworks) return mediaData.value?.image || '';
 
- 
+
   const horizontalImages = mediaData.value.artworks.filter(artwork =>
     artwork.width > artwork.height
   );
 
-  
+
   const priorityHorizontal = horizontalImages.find(artwork =>
-    [1, 2, 3, 15, 16].includes(artwork.type) 
+    [1, 2, 3, 15, 16].includes(artwork.type)
   );
 
-  const anyHorizontal = horizontalImages[0]; 
+  const anyHorizontal = horizontalImages[0];
 
   return priorityHorizontal?.image || anyHorizontal?.image || mediaData.value?.image || '';
 });
@@ -233,25 +238,12 @@ const onImageError = (event: Event) => {
 
       <hr>
 
+      <!-- Acciones de usuario (watchlist, watched, favorites) -->
       <div class="media-Control">
-        <button class="media-Control__button">
-          <img class="control-icon" src="../images/watchlist.svg" alt="Watchlist" />
-          <!-- <span class="control-button__text">Add to Watchlist</span> -->
-        </button>
-        <button class="media-Control__button">
-          <img class="control-icon" src="../images/watched.svg" alt="Watched" />
-          <!-- <span class="control-button__text">Add to Watched</span> -->
-        </button>
-        <button class="media-Control__button">
-          <img class="control-icon" src="../images/favorite.svg" alt="Favorite" />
-          <!-- <span class="control-button__text">Favorite</span> -->
-        </button>
+        <MediaActions v-if="mediaData" :mediaId="mediaData.id" :mediaType="isMovie ? 'movie' : 'series'" />
       </div>
 
-      <button class="play-button">
-        <img class="play-button__img" src="../images/watch.svg" alt="Reproducir" />
-        <span class="play-button__text">Reproducir</span>
-      </button>
+
 
       <hr>
 
@@ -259,12 +251,7 @@ const onImageError = (event: Event) => {
         <h3>Reparto</h3>
         <div class="media-cast__actors">
           <div class="media-cast__actor" v-for="character in getCharacters.slice(0, 10)" :key="character.id">
-          <img
-  class="actor__img"
-  :src="getActorImg(character)"
-  :alt="character.personName"
-  @error="onImageError"
-/>
+            <img class="actor__img" :src="getActorImg(character)" :alt="character.personName" @error="onImageError" />
 
 
 
@@ -743,6 +730,10 @@ hr {
   border-radius: 10px;
   flex-shrink: 0;
   border: 2px solid #3a3b47;
+}
+
+.media-actions-container {
+  margin: 20px 0;
 }
 
 /* Responsive Desktop */

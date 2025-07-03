@@ -8,6 +8,19 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 const app = Fastify({ logger: true })
+
+// Registrar el plugin de CORS
+await app.register(import('@fastify/cors'), {
+  origin: [
+    'http://localhost:5173', // Vite dev server
+    'http://localhost:4173', // Vite preview
+    'http://localhost:3000', // Desarrollo local alternativo
+    /^https?:\/\/localhost:\d+$/ // Cualquier puerto localhost
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+})
+
 const db = createClient({
   url: process.env.TURSO_DB_URL,
   authToken: process.env.TURSO_DB_TOKEN
@@ -104,63 +117,48 @@ app.post(
   '/media/status',
   { preHandler: auth },
   async (req, reply) => {
-    const { mediaIds } = req.body
-    if (!Array.isArray(mediaIds) || mediaIds.length === 0) {
+    const { mediaItems } = req.body
+    if (!Array.isArray(mediaItems) || mediaItems.length === 0) {
       return reply.send([])
     }
 
-    // Prepara placeholders para IN (...)
-    const placeholders = mediaIds.map(() => '?').join(',')
-
-    const sql = `
-      SELECT media_id,
-             MAX(watched)   AS watched,
-             MAX(favorite)  AS favorite,
-             MAX(watchlist) AS watchlist
-      FROM (
-        SELECT media_id, 1 AS watched, 0 AS favorite, 0 AS watchlist
-        FROM watched
-        WHERE user_id = ? AND media_id IN (${placeholders})
-        UNION ALL
-        SELECT media_id, 0, 1, 0
-        FROM favorites
-        WHERE user_id = ? AND media_id IN (${placeholders})
-        UNION ALL
-        SELECT media_id, 0, 0, 1
-        FROM watchlist
-        WHERE user_id = ? AND media_id IN (${placeholders})
-      )
-      GROUP BY media_id;
-    `
-
-    const args = [
-      req.user.sub,
-      ...mediaIds,
-      req.user.sub,
-      ...mediaIds,
-      req.user.sub,
-      ...mediaIds
-    ]
-
     try {
-      const { rows } = await db.execute({ sql, args })
-      const statusMap = new Map()
-      rows.forEach(r => {
-        statusMap.set(r.media_id, {
-          watched: Boolean(r.watched),
-          favorite: Boolean(r.favorite),
-          watchlist: Boolean(r.watchlist)
+      const result = []
+      
+      // Procesamos cada item individualmente para manejar media_id + media_type
+      for (const item of mediaItems) {
+        const { media_id, media_type } = item
+        
+        if (!media_id || !media_type) {
+          continue // Saltamos elementos inválidos
+        }
+        
+        // Verificamos watched
+        const watchedResult = await db.execute({
+          sql: 'SELECT 1 FROM watched WHERE user_id = ? AND media_id = ? AND media_type = ?',
+          args: [req.user.sub, media_id, media_type]
         })
-      })
-
-      const result = mediaIds.map(id => ({
-        id,
-        ...(statusMap.get(id) || {
-          watched: false,
-          favorite: false,
-          watchlist: false
+        
+        // Verificamos favorites
+        const favoriteResult = await db.execute({
+          sql: 'SELECT 1 FROM favorites WHERE user_id = ? AND media_id = ? AND media_type = ?',
+          args: [req.user.sub, media_id, media_type]
         })
-      }))
+        
+        // Verificamos watchlist
+        const watchlistResult = await db.execute({
+          sql: 'SELECT 1 FROM watchlist WHERE user_id = ? AND media_id = ? AND media_type = ?',
+          args: [req.user.sub, media_id, media_type]
+        })
+        
+        result.push({
+          id: media_id,
+          type: media_type,
+          watched: watchedResult.rows.length > 0,
+          favorite: favoriteResult.rows.length > 0,
+          watchlist: watchlistResult.rows.length > 0
+        })
+      }
 
       reply.send(result)
     } catch (err) {
@@ -169,94 +167,93 @@ app.post(
   }
 )
 
-
-
-// Agregar una película a "watched"
+// Agregar una película o serie a "watched"
 app.post(
   '/media/watched',
   { preHandler: auth },
   async (req, reply) => {
-    const { media_id } = req.body
-    if (!media_id) {
-      return reply.code(400).send({ error: 'media_id es requerido' })
+    const { media_id, media_type } = req.body
+    if (!media_id || !media_type) {
+      return reply.code(400).send({ error: 'media_id y media_type son requeridos' })
     }
     try {
       await db.execute({
         sql: `
-          INSERT OR IGNORE INTO watched (user_id, media_id)
-          VALUES (?, ?)
+          INSERT OR IGNORE INTO watched (user_id, media_id, media_type)
+          VALUES (?, ?, ?)
         `,
-        args: [req.user.sub, media_id]
+        args: [req.user.sub, media_id, media_type]
       })
-      reply.send({ id: media_id, watched: true })
+      reply.send({ id: media_id, type: media_type, watched: true })
     } catch (err) {
       reply.code(500).send({ error: err.message })
     }
   }
 )
 
-// Agregar una película a "favorites"
+// Agregar una película o serie a "favorites"
 app.post(
   '/media/favorite',
   { preHandler: auth },
   async (req, reply) => {
-    const { media_id } = req.body
-    if (!media_id) {
-      return reply.code(400).send({ error: 'media_id es requerido' })
+    const { media_id, media_type } = req.body
+    if (!media_id || !media_type) {
+      return reply.code(400).send({ error: 'media_id y media_type son requeridos' })
     }
     try {
       await db.execute({
         sql: `
-          INSERT OR IGNORE INTO favorites (user_id, media_id)
-          VALUES (?, ?)
+          INSERT OR IGNORE INTO favorites (user_id, media_id, media_type)
+          VALUES (?, ?, ?)
         `,
-        args: [req.user.sub, media_id]
+        args: [req.user.sub, media_id, media_type]
       })
-      reply.send({ id: media_id, favorite: true })
+      reply.send({ id: media_id, type: media_type, favorite: true })
     } catch (err) {
       reply.code(500).send({ error: err.message })
     }
   }
 )
-
 
 app.post(
   '/media/watchlist',
   { preHandler: auth },
   async (req, reply) => {
-    const { media_id } = req.body
-    if (!media_id) {
-      return reply.code(400).send({ error: 'media_id es requerido' })
+    const { media_id, media_type } = req.body
+    if (!media_id || !media_type) {
+      return reply.code(400).send({ error: 'media_id y media_type son requeridos' })
     }
     try {
       await db.execute({
         sql: `
-          INSERT OR IGNORE INTO watchlist (user_id, media_id)
-          VALUES (?, ?)
+          INSERT OR IGNORE INTO watchlist (user_id, media_id, media_type)
+          VALUES (?, ?, ?)
         `,
-        args: [req.user.sub, media_id]
+        args: [req.user.sub, media_id, media_type]
       })
-      reply.send({ id: media_id, watchlist: true })
+      reply.send({ id: media_id, type: media_type, watchlist: true })
     } catch (err) {
       reply.code(500).send({ error: err.message })
     }
   }
 )
 
-
 app.delete(
   '/media/watched',
   { preHandler: auth },
   async (req, reply) => {
-    const { media_id } = req.body
+    const { media_id, media_type } = req.body
+    if (!media_id || !media_type) {
+      return reply.code(400).send({ error: 'media_id y media_type son requeridos' })
+    }
     await db.execute({
       sql: `
         DELETE FROM watched
-        WHERE user_id = ? AND media_id = ?
+        WHERE user_id = ? AND media_id = ? AND media_type = ?
       `,
-      args: [req.user.sub, media_id]
+      args: [req.user.sub, media_id, media_type]
     })
-    reply.send({ id: media_id, watched: false })
+    reply.send({ id: media_id, type: media_type, watched: false })
   }
 )
 
@@ -264,15 +261,18 @@ app.delete(
   '/media/watchlist',
   { preHandler: auth },
   async (req, reply) => {
-    const { media_id } = req.body
+    const { media_id, media_type } = req.body
+    if (!media_id || !media_type) {
+      return reply.code(400).send({ error: 'media_id y media_type son requeridos' })
+    }
     await db.execute({
       sql: `
         DELETE FROM watchlist
-        WHERE user_id = ? AND media_id = ?
+        WHERE user_id = ? AND media_id = ? AND media_type = ?
       `,
-      args: [req.user.sub, media_id]
+      args: [req.user.sub, media_id, media_type]
     })
-    reply.send({ id: media_id, watchlist: false })
+    reply.send({ id: media_id, type: media_type, watchlist: false })
   }
 )
 
@@ -280,18 +280,71 @@ app.delete(
   '/media/favorite',
   { preHandler: auth },
   async (req, reply) => {
-    const { media_id } = req.body
+    const { media_id, media_type } = req.body
+    if (!media_id || !media_type) {
+      return reply.code(400).send({ error: 'media_id y media_type son requeridos' })
+    }
     await db.execute({
       sql: `
         DELETE FROM favorites
-        WHERE user_id = ? AND media_id = ?
+        WHERE user_id = ? AND media_id = ? AND media_type = ?
       `,
-      args: [req.user.sub, media_id]
+      args: [req.user.sub, media_id, media_type]
     })
-    reply.send({ id: media_id, favorite: false })
+    reply.send({ id: media_id, type: media_type, favorite: false })
   }
 )
 
+// Obtener lista completa de watchlist
+app.get(
+  '/media/watchlist',
+  { preHandler: auth },
+  async (req, reply) => {
+    try {
+      const { rows } = await db.execute({
+        sql: 'SELECT media_id, media_type FROM watchlist WHERE user_id = ?',
+        args: [req.user.sub]
+      })
+      reply.send(rows)
+    } catch (err) {
+      reply.code(500).send({ error: err.message })
+    }
+  }
+)
+
+// Obtener lista completa de watched
+app.get(
+  '/media/watched',
+  { preHandler: auth },
+  async (req, reply) => {
+    try {
+      const { rows } = await db.execute({
+        sql: 'SELECT media_id, media_type FROM watched WHERE user_id = ?',
+        args: [req.user.sub]
+      })
+      reply.send(rows)
+    } catch (err) {
+      reply.code(500).send({ error: err.message })
+    }
+  }
+)
+
+// Obtener lista completa de favorites
+app.get(
+  '/media/favorites',
+  { preHandler: auth },
+  async (req, reply) => {
+    try {
+      const { rows } = await db.execute({
+        sql: 'SELECT media_id, media_type FROM favorites WHERE user_id = ?',
+        args: [req.user.sub]
+      })
+      reply.send(rows)
+    } catch (err) {
+      reply.code(500).send({ error: err.message })
+    }
+  }
+)
 
 const port = process.env.PORT || 3000
 app.listen({ port }).then(() => {

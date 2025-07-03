@@ -33,6 +33,29 @@ const router = createRouter({
             },
           ],
         },
+        {
+          path: "/user",
+          redirect: "/user/watchlist",
+          name: "user",
+          component: () => import("@/layouts/ShowsLayout.vue"),
+          children: [
+            {
+              path: "/user/watchlist",
+              name: "user-watchlist",
+              component: () => import("@/views/WatchlistView.vue"),
+            },
+            {
+              path: "/user/watched",
+              name: "user-watched",
+              component: () => import("@/views/WatchedView.vue"),
+            },
+            {
+              path: "/user/favorites",
+              name: "user-favorites",
+              component: () => import("@/views/FavoritesView.vue"),
+            },
+          ],
+        },
       ],
     },
     {

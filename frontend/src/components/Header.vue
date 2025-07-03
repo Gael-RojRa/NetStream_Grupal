@@ -6,9 +6,16 @@ import { useClickOutside } from '@/composables/useClickOutside'
 import { navigationService } from '@/services/navigationService'
 import { config } from '@/config'
 import type { Datum } from '@/types/searchResult'
+import { useAuthStore } from '@/stores/authStore'
+import { useUserListsStore } from '@/stores/userListsStore'
+import LoginModal from './LoginModal.vue'
+
+const authStore = useAuthStore()
+const userListsStore = useUserListsStore()
 
 // Estados locales simples
 const showTypeDropdown = ref(false)
+const showLoginModal = ref(false)
 
 // Composables con responsabilidades específicas
 const {
@@ -57,6 +64,22 @@ const navigateToResult = (result: Datum) => {
 const handleImageError = (event: Event) => {
   const img = event.target as HTMLImageElement
   img.src = config.images.placeholderUrl
+}
+
+const handleLogin = () => {
+  showLoginModal.value = true
+}
+
+const handleLogout = () => {
+  authStore.logout()
+}
+
+const onLoginSuccess = async () => {
+  await userListsStore.loadAllLists()
+}
+
+const toggleLoginModal = () => {
+  showLoginModal.value = !showLoginModal.value
 }
 </script>
 
@@ -141,12 +164,32 @@ const handleImageError = (event: Event) => {
 
     </div>
     
-    <!-- Ícono de perfil: se oculta cuando está buscando -->
-    <img 
-      class="header__profile" 
-      :class="{ 'hidden': isInputFocused || searchValue }"
-      src="../temporalImgs/pfp.webp" 
-      alt="Perfil" 
+    <!-- Botón de Login/Logout y perfil -->
+    <div class="header__auth-section" :class="{ 'hidden': isInputFocused || searchValue }">
+      <button 
+        v-if="!authStore.isAuthenticated" 
+        @click="handleLogin"
+        class="header__login-btn"
+      >
+        Login
+      </button>
+      <div v-else class="header__user-section">
+        <img 
+          class="header__profile" 
+          src="../temporalImgs/pfp.webp" 
+          alt="Perfil" 
+        />
+        <button @click="handleLogout" class="header__logout-btn">
+          Logout
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal de Login -->
+    <LoginModal 
+      :show-modal="showLoginModal" 
+      @close="showLoginModal = false" 
+      @login-success="onLoginSuccess"
     />
   </header>
 </template>
@@ -198,8 +241,57 @@ const handleImageError = (event: Event) => {
   transition: opacity 0.3s ease;
 }
 
-.header__search-icon-only:hover .header__search-icon {
-  opacity: 1;
+/* Sección de autenticación */
+.header__auth-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.header__auth-section.hidden {
+  opacity: 0;
+  transform: translateX(20px);
+  pointer-events: none;
+}
+
+.header__login-btn {
+  background: #365bfe;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.header__login-btn:hover {
+  background: #2848e6;
+  transform: translateY(-2px);
+}
+
+.header__user-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header__logout-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 15px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.header__logout-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .header__search-container {

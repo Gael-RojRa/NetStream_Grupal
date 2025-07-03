@@ -44,3 +44,13 @@ export async function fetchSerieBySlug(slug: string): Promise<SerieExtended> {
   const response = await api.get<SerieExtended>(`series/${id}/extended`);
   return response.data;
 }
+
+export async function fetchSerieById(id: number): Promise<any> {
+  if (useMediaStore().token === null) {
+    const newToken = await login();
+    useMediaStore().token = newToken;
+  }
+
+  const response = await api.get(`series/${id}`);
+  return response.data;
+}
