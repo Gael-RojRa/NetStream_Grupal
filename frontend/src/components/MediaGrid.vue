@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import CategoryItem from '@/components/CategoryItem.vue';
 import { useSearchStore } from '@/stores/searchStore';
+import { useUserListsStore } from '@/stores/userListsStore';
+import { useAuthStore } from '@/stores/authStore';
 import { onMounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
@@ -10,6 +12,8 @@ interface Props {
 
 const props = defineProps<Props>()
 const searchStore = useSearchStore()
+const userListsStore = useUserListsStore()
+const authStore = useAuthStore()
 const route = useRoute()
 
 // Computed properties para determinar qué datos mostrar
@@ -39,7 +43,13 @@ const mediaLabel = computed(() =>
 )
 
 // Cargar contenido aleatorio cuando se monta el componente
-onMounted(() => {
+onMounted(async () => {
+  // Cargar listas de usuario si está autenticado
+  if (authStore.isAuthenticated) {
+    userListsStore.loadAllLists().catch(console.error);
+  }
+  
+  // Cargar contenido aleatorio según el tipo
   if (props.mediaType === 'movies') {
     searchStore.loadRandomMovies()
   } else {
@@ -51,6 +61,15 @@ onMounted(() => {
 watch(() => route.path, () => {
   searchStore.clearSearch()
 }, { immediate: true })
+
+// Observar cambios en la autenticación para cargar listas de usuario
+watch(() => authStore.isAuthenticated, (isAuthenticated) => {
+  if (isAuthenticated) {
+    userListsStore.loadAllLists().catch(console.error);
+  } else {
+    userListsStore.clearLists();
+  }
+})
 
 </script>
 

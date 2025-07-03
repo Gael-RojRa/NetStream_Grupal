@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import router from '@/router';
+import { useAuthStore } from '@/stores/authStore';
+import { useUserListsStore } from '@/stores/userListsStore';
+import { computed, onMounted } from 'vue';
 
 const props = defineProps<{
   id: string
@@ -9,6 +12,33 @@ const props = defineProps<{
   slug?: string
   mediaType?: 'series' | 'movies'
 }>()
+
+const authStore = useAuthStore();
+const userListsStore = useUserListsStore();
+
+// Computed para obtener el estado del media
+const mediaStatus = computed(() => {
+  if (!authStore.isAuthenticated) return null;
+  
+  const mediaType = props.mediaType === 'movies' ? 'movie' : 'series';
+  const mediaId = parseInt(props.id);
+  
+  return {
+    isWatched: userListsStore.isWatched(mediaId, mediaType),
+    isFavorite: userListsStore.isFavorite(mediaId, mediaType),
+    isInWatchlist: userListsStore.isInWatchlist(mediaId, mediaType)
+  };
+});
+
+// Cargar el estado cuando se monta el componente
+onMounted(async () => {
+  if (authStore.isAuthenticated) {
+    const mediaType = props.mediaType === 'movies' ? 'movie' : 'series';
+    const mediaId = parseInt(props.id);
+    
+    await userListsStore.getMediaStatusBatch([{ id: mediaId, type: mediaType }]);
+  }
+});
 
 const detailSerie = () => {
   if (props.mediaType === 'movies') {
@@ -46,6 +76,25 @@ const detailSerie = () => {
         loading="lazy"
         decoding="async"
       />
+      
+      <!-- Indicadores de estado -->
+      <div v-if="mediaStatus && authStore.isAuthenticated" class="status-indicators">
+        <!-- En lista de seguimiento -->
+        <div v-if="mediaStatus.isInWatchlist" class="status-indicator watchlist" title="En lista de seguimiento">
+          <img src="../images/watchlist.svg" alt="Watchlist" class="status-icon">
+        </div>
+        
+        <!-- Visto -->
+        <div v-if="mediaStatus.isWatched" class="status-indicator watched" title="Visto">
+          <img src="../images/watched.svg" alt="Watched" class="status-icon">
+        </div>
+        
+        <!-- Favorito -->
+        <div v-if="mediaStatus.isFavorite" class="status-indicator favorite" title="En favoritos">
+          <img src="../images/favorite.svg" alt="Favorite" class="status-icon">
+        </div>
+      </div>
+      
       <div class="category__item-rating">{{ rating }}</div>
     </div>
     <h3 class="category__item-title">{{ title }}</h3>
@@ -123,5 +172,66 @@ const detailSerie = () => {
 
 .category__item:hover .category__item-title {
   color: #ffffff;
+}
+
+/* Status indicators */
+.status-indicators {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+}
+
+.status-indicator {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.status-indicator:hover {
+  transform: scale(1.1);
+}
+
+.status-indicator.favorite {
+  background-color: rgba(239, 68, 68, 0.8);
+  color: white;
+}
+
+.status-indicator.watched {
+  background-color: rgba(34, 197, 94, 0.8);
+  color: white;
+}
+
+.status-indicator.watchlist {
+  background-color: rgba(59, 130, 246, 0.8);
+  color: white;
+}
+
+.status-icon {
+  width: 12px;
+  height: 12px;
+  filter: brightness(1) invert(1);
+  object-fit: contain;
+  max-width: 12px;
+  max-height: 12px;
+  flex-shrink: 0;
+}
+
+/* Ajuste específico para el icono de favoritos */
+.status-indicator.favorite .status-icon {
+  width: 10px !important;
+  height: 10px !important;
+  max-width: 10px !important;
+  max-height: 10px !important;
 }
 </style>
