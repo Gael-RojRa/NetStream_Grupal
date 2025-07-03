@@ -854,7 +854,7 @@ const goBack = () => {
   width: 100%;
   height: 360px;
   object-fit: cover;
-  object-position: center;
+  object-position: top;
   display: block;
   background-color: transparent;
   -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);

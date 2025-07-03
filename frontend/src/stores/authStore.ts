@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue';
 import { defineStore } from 'pinia';
+import router from '@/router';
 import { backendLogin, backendRegister, type LoginCredentials, type RegisterCredentials } from '@/services/backendService';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -56,6 +57,9 @@ export const useAuthStore = defineStore('auth', () => {
       const userListsStore = useUserListsStore();
       userListsStore.clearLists();
     });
+
+    // Redirigir a la página de Explore
+    router.push('/home');
   }
 
   function clearError() {

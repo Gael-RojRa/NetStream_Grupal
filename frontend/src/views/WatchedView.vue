@@ -101,8 +101,7 @@ onMounted(loadWatched);
 <style scoped>
 .user-list-view {
   padding: 2rem;
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 .content-grid {

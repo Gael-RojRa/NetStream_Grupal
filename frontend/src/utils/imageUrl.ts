@@ -9,7 +9,6 @@ export function processImageUrl(url: string | null | undefined): string | null {
   }
   
   const newUrl = `${BASE_IMAGE_URL}${url}`
-  console.log('Processing image URL:', newUrl);
   return newUrl
 }
 

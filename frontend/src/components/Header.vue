@@ -250,7 +250,7 @@ const toggleLoginModal = () => {
 }
 
 .header__auth-section.hidden {
-  opacity: 0;
+  display: none;
   transform: translateX(20px);
   pointer-events: none;
 }

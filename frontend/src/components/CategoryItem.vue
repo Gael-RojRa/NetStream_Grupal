@@ -5,7 +5,7 @@ import { useUserListsStore } from '@/stores/userListsStore';
 import { computed, onMounted, watch } from 'vue';
 
 const props = defineProps<{
-  id: string
+  id: string | number
   title: string
   image?: string
   rating: number
@@ -25,33 +25,8 @@ const mediaStatus = computed(() => {
   const mediaType = props.mediaType === 'movies' ? 'movie' : 'series';
   
   // Intentar diferentes formas de obtener un ID válido
-  let mediaId: number;
+  let mediaId: number = props.id as number;
   
-  // Si el ID es una cadena de número puro, convertir directamente
-  if (!isNaN(Number(props.id))) {
-    mediaId = Number(props.id);
-  } 
-  // Si el ID tiene formato "series-123456" o "movie-123456", extraer el número
-  else if (props.id.includes('-')) {
-    const parts = props.id.split('-');
-    const numericPart = parts[parts.length - 1]; // Tomar la última parte después del guión
-    if (!isNaN(Number(numericPart))) {
-      mediaId = Number(numericPart);
-    } else {
-      // Si no se puede extraer un número, usar hash como fallback
-      mediaId = Math.abs(props.id.split('').reduce((a, b) => {
-        a = ((a << 5) - a) + b.charCodeAt(0);
-        return a & a;
-      }, 0));
-    }
-  }
-  // Fallback para otros formatos
-  else {
-    mediaId = Math.abs(props.id.split('').reduce((a, b) => {
-      a = ((a << 5) - a) + b.charCodeAt(0);
-      return a & a;
-    }, 0));
-  }
   
   return {
     isWatched: userListsStore.isWatched(mediaId, mediaType),
@@ -156,11 +131,10 @@ const detailSerie = () => {
 }
 
 .category__item:hover {
-  border: 2px solid #bac3ff;
+  border: 1px solid #bac3ff;
   border-radius: 15px;
-  transform: scale(1.02);
   padding: 6px;
-  box-shadow: 0 8px 25px rgba(186, 195, 255, 0.2);
+  box-shadow: 8px rgba(186, 195, 255, 0.2);
 }
 
 .category__image-container {

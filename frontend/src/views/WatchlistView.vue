@@ -100,8 +100,8 @@ onMounted(loadWatchlist);
 
 <style scoped>
 .user-list-view {
-  max-width: 1400px;
-  margin: 0 auto;
+  padding: 1rem;
+  width: 100%;
 }
 
 .content-grid {
