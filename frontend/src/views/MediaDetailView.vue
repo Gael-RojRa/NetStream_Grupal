@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import type { SerieExtended } from '@/types/serieExtended';
 import type { MovieExtended } from '@/types/movieExtended';
 import { ref, computed } from 'vue';
@@ -14,6 +14,7 @@ import ProgressBar from '@/components/ProgressBar.vue';
 import type { SeasonEpisodes } from '@/types/seasonEpisodes';
 
 const route = useRoute();
+const router = useRouter();
 const authStore = useAuthStore();
 const userListsStore = useUserListsStore();
 const episodeProgressStore = useEpisodeProgressStore();
@@ -385,11 +386,30 @@ const onImageError = (event: Event) => {
   }
 };
 
+// Función para regresar
+const goBack = () => {
+  // Usar el historial del navegador para regresar
+  if (window.history.length > 1) {
+    window.history.back();
+  } else {
+    // Si no hay historial, ir a la página principal
+    router.push('/');
+  }
+};
+
 
 
 </script>
 
 <template>
+  <!-- Botón flotante de regreso -->
+  <button class="back-button" @click="goBack" title="Volver atrás">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="m12 19-7-7 7-7"/>
+      <path d="m19 12H5"/>
+    </svg>
+  </button>
+
   <!-- Loading State -->
   <div v-if="loading" class="loading-container">
     <div class="loading-poster-skeleton"></div>
@@ -623,6 +643,46 @@ const onImageError = (event: Event) => {
 </template>
 
 <style scoped>
+/* Botón flotante de regreso */
+.back-button {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(45, 45, 45, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.back-button:hover {
+  background: rgba(186, 195, 255, 0.9);
+  color: #2a2e47;
+  transform: scale(1.05);
+  box-shadow: 0 6px 25px rgba(186, 195, 255, 0.4);
+}
+
+.back-button:active {
+  transform: scale(0.95);
+}
+
+.back-button svg {
+  transition: transform 0.2s ease;
+}
+
+.back-button:hover svg {
+  transform: translateX(-2px);
+}
+
 /* Loading States */
 .loading-container {
   display: flex;
@@ -1347,6 +1407,24 @@ hr {
   .season-image {
     width: 60px;
     height: 90px;
+  }
+
+  /* Botón de regreso más grande en desktop */
+  .back-button {
+    width: 52px;
+    height: 52px;
+    top: 24px;
+    left: 24px;
+  }
+}
+
+/* Responsive Mobile */
+@media (max-width: 767px) {
+  .back-button {
+    top: 16px;
+    left: 16px;
+    width: 44px;
+    height: 44px;
   }
 }
 </style>
