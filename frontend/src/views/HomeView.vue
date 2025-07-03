@@ -4,32 +4,40 @@ import CategorySection from "@/components/CategorySection.vue";
 
 <template>
   <main class="main">
+    <!-- Sección de contenido trending (mixto: películas y series populares) -->
+    <CategorySection 
+      title="🔥 Tendencias del Momento" 
+      media-type="movies" 
+      :page="1"
+      sort-by="trending"
+      :limit="15"
+    />
+    
     <!-- Sección de películas populares -->
     <CategorySection 
-      title="Películas Populares" 
+      title="🎬 Películas Populares" 
       media-type="movies" 
-      :page="1" 
+      :page="1"
+      sort-by="popular"
+      :limit="12"
     />
     
-    <!-- Sección de series populares -->
+    <!-- Sección de series aclamadas -->
     <CategorySection 
-      title="Series Populares" 
+      title="⭐ Series Aclamadas" 
       media-type="series" 
       :page="1" 
+      sort-by="acclaimed"
+      :limit="12"
     />
     
-    <!-- Sección de películas nuevas -->
+    <!-- Sección de descubrimientos aleatorios -->
     <CategorySection 
-      title="Últimas Películas" 
-      media-type="movies" 
-      :page="2" 
-    />
-    
-    <!-- Sección de series nuevas -->
-    <CategorySection 
-      title="Series Recomendadas" 
+      title="🎲 Descubre Algo Nuevo" 
       media-type="series" 
-      :page="2" 
+      :page="3" 
+      sort-by="random"
+      :limit="8"
     />
   </main>
 </template>

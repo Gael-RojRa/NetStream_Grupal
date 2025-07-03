@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import CategoryItem from '@/components/CategoryItem.vue';
+import CategoryItemWithScore from '@/components/CategoryItemWithScore.vue';
 import { useSearchStore } from '@/stores/searchStore';
+import { useUserListsStore } from '@/stores/userListsStore';
+import { useAuthStore } from '@/stores/authStore';
 import { onMounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
@@ -10,6 +12,8 @@ interface Props {
 
 const props = defineProps<Props>()
 const searchStore = useSearchStore()
+const userListsStore = useUserListsStore()
+const authStore = useAuthStore()
 const route = useRoute()
 
 // Computed properties para determinar qué datos mostrar
@@ -39,7 +43,13 @@ const mediaLabel = computed(() =>
 )
 
 // Cargar contenido aleatorio cuando se monta el componente
-onMounted(() => {
+onMounted(async () => {
+  // Cargar listas de usuario si está autenticado
+  if (authStore.isAuthenticated) {
+    await userListsStore.loadAllLists().catch(console.error);
+  }
+  
+  // Cargar contenido aleatorio según el tipo
   if (props.mediaType === 'movies') {
     searchStore.loadRandomMovies()
   } else {
@@ -51,6 +61,22 @@ onMounted(() => {
 watch(() => route.path, () => {
   searchStore.clearSearch()
 }, { immediate: true })
+
+// Observar cambios en la autenticación para cargar listas de usuario
+watch(() => authStore.isAuthenticated, async (isAuthenticated) => {
+  if (isAuthenticated) {
+    await userListsStore.loadAllLists().catch(console.error);
+  } else {
+    userListsStore.clearLists();
+  }
+})
+
+// Observar cambios en los resultados de búsqueda para asegurar que las listas estén cargadas
+watch(() => searchStore.hasSearchResults, async (hasResults) => {
+  if (hasResults && authStore.isAuthenticated && userListsStore.watchlist.length === 0) {
+    await userListsStore.loadAllLists().catch(console.error);
+  }
+})
 
 </script>
 
@@ -77,13 +103,12 @@ watch(() => route.path, () => {
     </div>
 
     <div class="content-grid">
-      <CategoryItem 
+      <CategoryItemWithScore 
         v-for="item in displayItems" 
         :key="item.id" 
-        :id="item.id" 
+        :id="item.id.toString()" 
         :title="item.name" 
         :image="item.image_url"
-        :rating="5" 
         :slug="item.slug" 
         :media-type="props.mediaType" 
       />

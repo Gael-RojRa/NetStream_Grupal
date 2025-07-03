@@ -117,8 +117,7 @@ export class SearchService {
 }
 
 export const searchService = new SearchService()
-
-// Mantener compatibilidad con la función anterior
+  
 export async function searchMedia(query: string, type?: string, limit: number = 20): Promise<SearchResult> {
   return searchService.searchMedia({ query, type: type as any, limit })
 }

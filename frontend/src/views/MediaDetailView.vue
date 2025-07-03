@@ -1,22 +1,32 @@
 <script setup lang="ts">
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import type { SerieExtended } from '@/types/serieExtended';
 import type { MovieExtended } from '@/types/movieExtended';
 import { ref, computed } from 'vue';
-import { fetchSerieBySlug } from '@/services/series';
+import { fetchSerieBySlug, fetchSeasonEpisodes } from '@/services/series';
 import { fetchMovieBySlug } from '@/services/movies';
 import { onMounted } from 'vue';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserListsStore } from '@/stores/userListsStore';
+import { useEpisodeProgressStore } from '@/stores/episodeProgressStore';
 import MediaActions from '@/components/MediaActions.vue';
+import ProgressBar from '@/components/ProgressBar.vue';
+import type { SeasonEpisodes } from '@/types/seasonEpisodes';
 
 const route = useRoute();
+const router = useRouter();
 const authStore = useAuthStore();
 const userListsStore = useUserListsStore();
+const episodeProgressStore = useEpisodeProgressStore();
 const serie = ref<SerieExtended | null>(null);
 const movie = ref<MovieExtended | null>(null);
 const loading = ref(true);
 const error = ref<string | null>(null);
+
+// Estado para temporadas y episodios
+const openSeasons = ref<Set<number>>(new Set()); // Set para manejar múltiples temporadas abiertas
+const seasonEpisodes = ref<{ [key: number]: SeasonEpisodes | null }>({});
+const loadingEpisodes = ref<{ [key: number]: boolean }>({});
 
 // Detectar si es una serie o película basado en la ruta
 const isMovie = computed(() => {
@@ -41,6 +51,33 @@ onMounted(async () => {
     } else {
       const serieData = await fetchSerieBySlug(slug);
       serie.value = serieData;
+      
+      // Cargar progreso de episodios si el usuario está autenticado
+      if (authStore.isAuthenticated && serieData.data.id) {
+        await Promise.all([
+          episodeProgressStore.loadWatchedEpisodes(serieData.data.id),
+          episodeProgressStore.loadSeriesProgress(serieData.data.id)
+        ]);
+      }
+      
+      // Pre-cargar el count de episodios de todas las temporadas para la barra de progreso
+      if (serieData.data.seasons && serieData.data.seasons.length > 0) {
+        const seasonsToLoad = serieData.data.seasons
+          .filter(season => season.type.name === 'Aired Order')
+          .sort((a, b) => a.number - b.number);
+        
+        // Cargar episodios de todas las temporadas en paralelo (solo para obtener el count)
+        const loadPromises = seasonsToLoad.map(season => 
+          loadSeasonEpisodes(season.number).catch(err => {
+            console.warn(`No se pudieron cargar episodios de temporada ${season.number}:`, err);
+          })
+        );
+        
+        // Esperar a que se carguen pero no bloquear la UI si falla
+        Promise.all(loadPromises).then(() => {
+          console.log('✅ Todos los episodios pre-cargados para cálculo de progreso');
+        });
+      }
     }
 
   } catch (err) {
@@ -118,6 +155,182 @@ const getArtworks = computed(() => {
   return mediaData.value?.artworks || [];
 });
 
+const getSeasons = computed(() => {
+  if (!isMovie.value && serie.value) {
+    const filteredSeasons = serie.value.data.seasons.filter(season => season.type.name === 'Aired Order').sort((a, b) => a.number - b.number);
+    return filteredSeasons;
+  }
+  return [];
+});
+
+// Función para cargar episodios de una temporada
+const loadSeasonEpisodes = async (seasonNumber: number) => {
+  if (!serie.value || isMovie.value) return;
+  
+  const season = getSeasons.value.find(s => s.number === seasonNumber);
+  if (!season) {
+    console.error(`No se encontró la temporada ${seasonNumber}`);
+    return;
+  }
+
+  // Si ya están cargados, no hacer nada
+  if (seasonEpisodes.value[seasonNumber]) return;
+
+  // Marcar como cargando
+  loadingEpisodes.value[seasonNumber] = true;
+  
+  try {
+    // Primero intentamos usar los episodios que ya tenemos en la serie
+    if (serie.value.data.episodes && serie.value.data.episodes.length > 0) {
+      const episodesForSeason = serie.value.data.episodes.filter(episode => 
+        episode.seasonNumber === seasonNumber
+      );
+      
+      if (episodesForSeason.length > 0) {
+        seasonEpisodes.value[seasonNumber] = {
+          status: 'success',
+          data: {
+            series: {
+              id: serie.value.data.id,
+              name: serie.value.data.name,
+              slug: serie.value.data.slug,
+              image: serie.value.data.image
+            },
+            episodes: episodesForSeason
+          }
+        };
+        console.log(`✅ Episodios cargados localmente para temporada ${seasonNumber}:`, episodesForSeason.length);
+        return;
+      }
+    }
+    
+    // Si no hay episodios locales, hacer llamada a la API
+    console.log(`🔄 Cargando episodios desde API para temporada ${seasonNumber}`);
+    const episodes = await fetchSeasonEpisodes(
+      serie.value.data.id,
+      season.type.id,
+      seasonNumber
+    );
+    
+    seasonEpisodes.value[seasonNumber] = episodes;
+    console.log(`✅ Episodios cargados desde API para temporada ${seasonNumber}`);
+  } catch (err) {
+    console.error(`❌ Error al cargar episodios de la temporada ${seasonNumber}:`, err);
+    // En caso de error, crear un objeto vacío para evitar intentos repetidos
+    seasonEpisodes.value[seasonNumber] = {
+      status: 'error',
+      data: {
+        series: {
+          id: serie.value.data.id,
+          name: serie.value.data.name,
+          slug: serie.value.data.slug,
+          image: serie.value.data.image
+        },
+        episodes: []
+      }
+    };
+  } finally {
+    loadingEpisodes.value[seasonNumber] = false;
+  }
+};
+
+// Función para alternar la vista de una temporada
+const toggleSeason = async (seasonNumber: number) => {
+  if (openSeasons.value.has(seasonNumber)) {
+    // Si está abierta, cerrarla
+    openSeasons.value.delete(seasonNumber);
+  } else {
+    // Si está cerrada, abrirla y cargar episodios
+    openSeasons.value.add(seasonNumber);
+    await loadSeasonEpisodes(seasonNumber);
+  }
+};
+
+// Función para manejar el toggle de episodio visto
+const toggleEpisodeWatched = async (episode: any, seasonNumber: number) => {
+  console.log('🎬 Toggle episodio clicked:', { 
+    episode: episode, 
+    season: seasonNumber, 
+    series: serie.value?.data.id 
+  });
+  console.log('📊 Estructura del episodio:', {
+    id: episode.id,
+    number: episode.number,
+    name: episode.name,
+    allProps: Object.keys(episode)
+  });
+  
+  if (!serie.value || !authStore.isAuthenticated) {
+    console.log('❌ No hay serie o usuario no autenticado');
+    return;
+  }
+  
+  console.log('📡 Enviando toggle a store...');
+  
+  try {
+    await episodeProgressStore.toggleEpisodeWatched(
+      serie.value.data.id,
+      seasonNumber,
+      episode.id,
+      episode.number
+    );
+    console.log('✅ Toggle completado exitosamente');
+  } catch (error) {
+    console.error('❌ Error en toggle:', error);
+  }
+};
+
+// Computeds para progreso
+const getTotalEpisodesInSeries = computed(() => {
+  if (!serie.value) return 0;
+  
+  // Calcular basándose en los episodios cargados o en la serie
+  let total = 0;
+  for (const season of getSeasons.value) {
+    // Prioridad 1: episodios ya cargados para esta temporada
+    const loadedEpisodes = seasonEpisodes.value[season.number];
+    if (loadedEpisodes?.data?.episodes) {
+      total += loadedEpisodes.data.episodes.length;
+    } else if (serie.value.data.episodes && serie.value.data.episodes.length > 0) {
+      // Prioridad 2: episodios que ya están en la serie filtrados por temporada
+      const episodesInSeason = serie.value.data.episodes.filter(ep => ep.seasonNumber === season.number);
+      total += episodesInSeason.length;
+    }
+    // Si no hay episodios disponibles, no agregar nada (se cargará asincrónicamente)
+  }
+  
+  console.log('📊 Total episodios calculado:', total, 'para', getSeasons.value.length, 'temporadas');
+  return total;
+});
+
+const getOverallProgress = computed(() => {
+  if (!serie.value || !authStore.isAuthenticated) {
+    return { total_watched: 0, total_episodes: 0, progress_percentage: 0 };
+  }
+  
+  return episodeProgressStore.getSeriesOverallProgress(
+    serie.value.data.id, 
+    getTotalEpisodesInSeries.value
+  );
+});
+
+const getSeasonProgressData = computed(() => {
+  return (seasonNumber: number) => {
+    if (!serie.value || !authStore.isAuthenticated) {
+      return { watched_episodes: 0, total_episodes: 0, progress_percentage: 0 };
+    }
+    
+    const episodes = seasonEpisodes.value[seasonNumber];
+    const totalEpisodes = episodes?.data?.episodes?.length || 0;
+    
+    return episodeProgressStore.calculateSeasonProgress(
+      serie.value.data.id,
+      seasonNumber,
+      totalEpisodes
+    );
+  };
+});
+
 const getStatus = computed(() => {
   return mediaData.value?.status.name || {};
 });
@@ -173,11 +386,30 @@ const onImageError = (event: Event) => {
   }
 };
 
+// Función para regresar
+const goBack = () => {
+  // Usar el historial del navegador para regresar
+  if (window.history.length > 1) {
+    window.history.back();
+  } else {
+    // Si no hay historial, ir a la página principal
+    router.push('/');
+  }
+};
+
 
 
 </script>
 
 <template>
+  <!-- Botón flotante de regreso -->
+  <button class="back-button" @click="goBack" title="Volver atrás">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="m12 19-7-7 7-7"/>
+      <path d="m19 12H5"/>
+    </svg>
+  </button>
+
   <!-- Loading State -->
   <div v-if="loading" class="loading-container">
     <div class="loading-poster-skeleton"></div>
@@ -279,11 +511,178 @@ const onImageError = (event: Event) => {
             :src="artwork.image" :alt="`Imagen de ${mediaData.name}`" />
         </div>
       </div>
+
+      <!-- Sección de temporadas (solo para series) -->
+      <div class="media-seasons" v-if="!isMovie && getSeasons.length">
+        <h3>Temporadas</h3>
+        
+        <!-- Barra de progreso general de la serie (solo si está autenticado) -->
+        <div v-if="authStore.isAuthenticated" class="series-progress">
+          <ProgressBar
+            :label="`Progreso total de ${mediaData.name}`"
+            :watched-count="getOverallProgress.total_watched"
+            :total-count="getOverallProgress.total_episodes"
+          />
+        </div>
+        
+        <div class="seasons-container">
+          <div 
+            v-for="season in getSeasons" 
+            :key="season.id" 
+            class="season-item"
+          >
+            <div 
+              class="season-header" 
+              @click="toggleSeason(season.number)"
+              :class="{ 'active': openSeasons.has(season.number) }"
+            >
+              <div class="season-info">
+                <img 
+                  v-if="season.image" 
+                  :src="season.image" 
+                  :alt="`Temporada ${season.number}`"
+                  class="season-image"
+                />
+                <div class="season-text">
+                  <h4>Temporada {{ season.number }}</h4>
+                  <p class="season-type">{{ season.type.name }}</p>
+                  
+                  <!-- Barra de progreso de la temporada (solo si está autenticado) -->
+                  <div v-if="authStore.isAuthenticated" class="season-progress-container">
+                    <ProgressBar
+                      :label="`Temporada ${season.number}`"
+                      :watched-count="getSeasonProgressData(season.number).watched_episodes"
+                      :total-count="getSeasonProgressData(season.number).total_episodes || 0"
+                      class="compact"
+                    />
+                  </div>
+                </div>
+              </div>
+              <span class="season-toggle">
+                {{ openSeasons.has(season.number) ? '−' : '+' }}
+              </span>
+            </div>
+            
+            <!-- Episodios de la temporada -->
+            <div 
+              v-if="openSeasons.has(season.number)" 
+              class="season-episodes"
+            >
+              <div v-if="loadingEpisodes[season.number]" class="episodes-loading">
+                <div class="loading-spinner"></div>
+                <p>Cargando episodios...</p>
+              </div>
+              
+              <div 
+                v-else-if="seasonEpisodes[season.number]?.data?.episodes && Array.isArray(seasonEpisodes[season.number]?.data?.episodes) && seasonEpisodes[season.number]!.data!.episodes!.length > 0" 
+                class="episodes-list"
+              >
+                <div 
+                  v-for="episode in seasonEpisodes[season.number]?.data?.episodes" 
+                  :key="episode.id"
+                  class="episode-item"
+                  :class="{ 'watched': authStore.isAuthenticated && episodeProgressStore.isEpisodeWatched(serie!.data.id, episode.id) }"
+                >
+                  <div class="episode-header">
+                    <div class="episode-number">
+                      {{ episode.number }}
+                    </div>
+                    
+                    <!-- Botón de visto (solo si está autenticado) -->
+                    <button 
+                      v-if="authStore.isAuthenticated"
+                      class="episode-watched-btn"
+                      :class="{ 'watched': episodeProgressStore.isEpisodeWatched(serie!.data.id, episode.id) }"
+                      @click.stop="toggleEpisodeWatched(episode, season.number)"
+                      :title="episodeProgressStore.isEpisodeWatched(serie!.data.id, episode.id) ? 'Marcar como no visto' : 'Marcar como visto'"
+                    >
+                      <svg v-if="episodeProgressStore.isEpisodeWatched(serie!.data.id, episode.id)" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                      </svg>
+                      <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  <div class="episode-content">
+                    <img 
+                      v-if="episode.image" 
+                      :src="episode.image" 
+                      :alt="episode.name"
+                      class="episode-image"
+                    />
+                    <div class="episode-info">
+                      <h5 class="episode-title">{{ episode.name || 'Sin título' }}</h5>
+                      <p v-if="episode.aired" class="episode-date">
+                        {{ episode.aired instanceof Date ? episode.aired.toLocaleDateString() : new Date(episode.aired).toLocaleDateString() }}
+                      </p>
+                      <p v-if="episode.runtime" class="episode-runtime">
+                        {{ episode.runtime }}min
+                      </p>
+                      <p v-if="episode.overview" class="episode-overview">
+                        {{ episode.overview }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div 
+                v-else-if="seasonEpisodes[season.number] && !loadingEpisodes[season.number]" 
+                class="no-episodes"
+              >
+                <p>No se encontraron episodios para esta temporada.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+/* Botón flotante de regreso */
+.back-button {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(45, 45, 45, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.back-button:hover {
+  background: rgba(186, 195, 255, 0.9);
+  color: #2a2e47;
+  transform: scale(1.05);
+  box-shadow: 0 6px 25px rgba(186, 195, 255, 0.4);
+}
+
+.back-button:active {
+  transform: scale(0.95);
+}
+
+.back-button svg {
+  transition: transform 0.2s ease;
+}
+
+.back-button:hover svg {
+  transform: translateX(-2px);
+}
+
 /* Loading States */
 .loading-container {
   display: flex;
@@ -455,7 +854,7 @@ const onImageError = (event: Event) => {
   width: 100%;
   height: 360px;
   object-fit: cover;
-  object-position: center;
+  object-position: top;
   display: block;
   background-color: transparent;
   -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
@@ -736,6 +1135,251 @@ hr {
   margin: 20px 0;
 }
 
+/* Sección de temporadas */
+.media-seasons {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+  margin-top: 20px;
+}
+
+.media-seasons h3 {
+  font-size: 1.2rem;
+  margin: 0;
+}
+
+.series-progress {
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #23242a;
+  border-radius: 8px;
+  border: 1px solid #3a3b47;
+}
+
+.seasons-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.season-item {
+  border: 1px solid #3a3b47;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #23242a;
+}
+
+.season-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.season-header:hover {
+  background-color: #2a2b31;
+}
+
+.season-header.active {
+  background-color: #2c2d38;
+}
+
+.season-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.season-image {
+  width: 50px;
+  height: 75px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #3a3b47;
+}
+
+.season-text {
+  flex: 1;
+}
+
+.season-text h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.season-type {
+  margin: 4px 0 0 0;
+  font-size: 0.8rem;
+  color: #b0b0b0;
+}
+
+.season-progress-container {
+  margin-top: 8px;
+}
+
+.season-toggle {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #bac3ff;
+}
+
+.season-episodes {
+  border-top: 1px solid #3a3b47;
+}
+
+.episodes-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #3a3b47;
+  border-top: 2px solid #bac3ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.episodes-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.episode-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 15px;
+  border-bottom: 1px solid #2c2d38;
+  transition: background-color 0.2s;
+}
+
+.episode-item:last-child {
+  border-bottom: none;
+}
+
+.episode-item.watched {
+  background-color: rgba(16, 185, 129, 0.1);
+  border-left: 3px solid #10b981;
+}
+
+.episode-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.episode-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  background-color: #3a3b47;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #bac3ff;
+  flex-shrink: 0;
+}
+
+.episode-watched-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid #6b7280;
+  border-radius: 50%;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.episode-watched-btn:hover {
+  border-color: #bac3ff;
+  color: #bac3ff;
+}
+
+.episode-watched-btn.watched {
+  border-color: #10b981;
+  background-color: #10b981;
+  color: white;
+}
+
+.episode-watched-btn.watched:hover {
+  background-color: #059669;
+  border-color: #059669;
+}
+
+.episode-content {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+}
+
+.episode-image {
+  width: 80px;
+  height: 45px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #3a3b47;
+  flex-shrink: 0;
+}
+
+.episode-info {
+  flex: 1;
+}
+
+.episode-title {
+  margin: 0 0 4px 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.episode-date,
+.episode-runtime {
+  margin: 2px 0;
+  font-size: 0.75rem;
+  color: #b0b0b0;
+}
+
+.episode-overview {
+  margin: 8px 0 0 0;
+  font-size: 0.8rem;
+  color: #b0b0b0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.no-episodes {
+  padding: 20px;
+  text-align: center;
+  color: #b0b0b0;
+  font-style: italic;
+}
+
 /* Responsive Desktop */
 @media (min-width: 768px) {
   .play-button {
@@ -749,6 +1393,38 @@ hr {
 
   .poster__img--desktop {
     display: block;
+  }
+
+  .episode-content {
+    gap: 15px;
+  }
+
+  .episode-image {
+    width: 120px;
+    height: 68px;
+  }
+
+  .season-image {
+    width: 60px;
+    height: 90px;
+  }
+
+  /* Botón de regreso más grande en desktop */
+  .back-button {
+    width: 52px;
+    height: 52px;
+    top: 24px;
+    left: 24px;
+  }
+}
+
+/* Responsive Mobile */
+@media (max-width: 767px) {
+  .back-button {
+    top: 16px;
+    left: 16px;
+    width: 44px;
+    height: 44px;
   }
 }
 </style>

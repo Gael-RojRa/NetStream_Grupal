@@ -29,33 +29,17 @@
       </router-link>
     </div>
 
-    <div v-else class="media-grid">
-      <div 
+    <div v-else class="content-grid">
+      <CategoryItem
         v-for="media in favoriteMedia" 
         :key="media.id"
-        class="media-card"
-        @click="goToDetail(media)"
-      >
-        <div class="media-poster">
-          <img :src="media.image" :alt="media.name" @error="onImageError">
-          <div class="favorite-badge">
-            <img src="../images/favorite.svg" alt="Favorito" class="badge-icon">
-          </div>
-          <div class="remove-overlay">
-            <button 
-              @click.stop="removeFromFavorites(media.id, media.type)"
-              class="remove-button"
-              title="Quitar de favoritos"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-        <div class="media-info">
-          <h3 class="media-title">{{ media.name }}</h3>
-          <p class="media-year">{{ media.year }}</p>
-        </div>
-      </div>
+        :id="media.id.toString()"
+        :title="media.name"
+        :image="media.image"
+        :rating="media.score || 0"
+        :slug="media.slug"
+        :mediaType="media.type === 'movie' ? 'movies' : 'series'"
+      />
     </div>
   </div>
 </template>
@@ -66,6 +50,7 @@ import { useRouter } from 'vue-router';
 import { useUserListsStore } from '@/stores/userListsStore';
 import { useAuthStore } from '@/stores/authStore';
 import { getMediaDetailsBatch, type MediaItem } from '@/services/userMediaService';
+import CategoryItem from '@/components/CategoryItem.vue';
 
 const router = useRouter();
 const userListsStore = useUserListsStore();
@@ -110,24 +95,23 @@ const removeFromFavorites = async (mediaId: number, mediaType: 'movie' | 'series
   }
 };
 
-const goToDetail = (media: any) => {
-  const mediaType = media.type === 'movie' ? 'movie' : 'series';
-  router.push(`/media/${mediaType}/${media.id}`);
-};
-
-const onImageError = (event: Event) => {
-  const target = event.target as HTMLImageElement;
-  target.src = '/placeholder-poster.jpg';
-};
-
 onMounted(loadFavorites);
 </script>
 
 <style scoped>
 .user-list-view {
   padding: 2rem;
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
+}
+
+.content-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  justify-content: start;
+  padding-bottom: 60px;
 }
 
 .list-header {
@@ -232,104 +216,6 @@ onMounted(loadFavorites);
   background: #2a4bd7;
 }
 
-.media-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 2rem;
-}
-
-.media-card {
-  cursor: pointer;
-  transition: transform 0.3s ease;
-  position: relative;
-}
-
-.media-card:hover {
-  transform: translateY(-5px);
-}
-
-.media-poster {
-  position: relative;
-  aspect-ratio: 2/3;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #333;
-}
-
-.media-poster img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.favorite-badge {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  background: rgba(255, 107, 107, 0.9);
-  border-radius: 6px;
-  padding: 4px 8px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.badge-icon {
-  width: 16px;
-  height: 16px;
-  filter: brightness(0) invert(1);
-}
-
-.remove-overlay {
-  position: absolute;
-  top: 0;
-  right: 0;
-  background: rgba(0, 0, 0, 0.8);
-  border-radius: 0 12px 0 12px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.media-card:hover .remove-overlay {
-  opacity: 1;
-}
-
-.remove-button {
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 1.2rem;
-  padding: 0.5rem;
-  cursor: pointer;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.remove-button:hover {
-  color: #ff6b6b;
-}
-
-.media-info {
-  padding: 1rem 0;
-}
-
-.media-title {
-  color: #fff;
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 0 0 0.25rem 0;
-  line-height: 1.3;
-}
-
-.media-year {
-  color: #ccc;
-  font-size: 0.9rem;
-  margin: 0;
-}
-
 @media (max-width: 768px) {
   .user-list-view {
     padding: 1rem;
@@ -337,11 +223,6 @@ onMounted(loadFavorites);
   
   .list-title {
     font-size: 2rem;
-  }
-  
-  .media-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 1rem;
   }
 }
 </style>

@@ -1,14 +1,62 @@
 <script setup lang="ts">
 import router from '@/router';
+import { useAuthStore } from '@/stores/authStore';
+import { useUserListsStore } from '@/stores/userListsStore';
+import { computed, onMounted, watch } from 'vue';
 
 const props = defineProps<{
-  id: string
+  id: string | number
   title: string
   image?: string
   rating: number
   slug?: string
   mediaType?: 'series' | 'movies'
 }>()
+
+const authStore = useAuthStore();
+const userListsStore = useUserListsStore();
+
+// Computed para obtener el estado del media
+const mediaStatus = computed(() => {
+  if (!authStore.isAuthenticated) {
+    return null;
+  }
+  
+  const mediaType = props.mediaType === 'movies' ? 'movie' : 'series';
+  
+  // Intentar diferentes formas de obtener un ID válido
+  let mediaId: number = props.id as number;
+  
+  
+  return {
+    isWatched: userListsStore.isWatched(mediaId, mediaType),
+    isFavorite: userListsStore.isFavorite(mediaId, mediaType),
+    isInWatchlist: userListsStore.isInWatchlist(mediaId, mediaType)
+  };
+});
+
+// Cargar el estado cuando se monta el componente
+onMounted(async () => {
+  if (authStore.isAuthenticated) {
+    try {
+      // Siempre intentar cargar las listas para asegurar que estén actualizadas
+      await userListsStore.loadAllLists();
+    } catch (error) {
+      console.error('Error loading user lists in CategoryItem:', error);
+    }
+  }
+});
+
+// Observar cambios en la autenticación para cargar listas cuando el usuario se loguee
+watch(() => authStore.isAuthenticated, async (isAuthenticated) => {
+  if (isAuthenticated) {
+    try {
+      await userListsStore.loadAllLists();
+    } catch (error) {
+      console.error('Error loading user lists after login:', error);
+    }
+  }
+});
 
 const detailSerie = () => {
   if (props.mediaType === 'movies') {
@@ -46,6 +94,25 @@ const detailSerie = () => {
         loading="lazy"
         decoding="async"
       />
+      
+      <!-- Indicadores de estado -->
+      <div v-if="mediaStatus && authStore.isAuthenticated" class="status-indicators">
+        <!-- En lista de seguimiento -->
+        <div v-if="mediaStatus.isInWatchlist" class="status-indicator watchlist" title="En lista de seguimiento">
+          <img src="../images/watchlist.svg" alt="Watchlist" class="status-icon">
+        </div>
+        
+        <!-- Visto -->
+        <div v-if="mediaStatus.isWatched" class="status-indicator watched" title="Visto">
+          <img src="../images/watched.svg" alt="Watched" class="status-icon">
+        </div>
+        
+        <!-- Favorito -->
+        <div v-if="mediaStatus.isFavorite" class="status-indicator favorite" title="En favoritos">
+          <img src="../images/favorite.svg" alt="Favorite" class="status-icon">
+        </div>
+      </div>
+      
       <div class="category__item-rating">{{ rating }}</div>
     </div>
     <h3 class="category__item-title">{{ title }}</h3>
@@ -64,11 +131,10 @@ const detailSerie = () => {
 }
 
 .category__item:hover {
-  border: 2px solid #bac3ff;
+  border: 1px solid #bac3ff;
   border-radius: 15px;
-  transform: scale(1.02);
   padding: 6px;
-  box-shadow: 0 8px 25px rgba(186, 195, 255, 0.2);
+  box-shadow: 8px rgba(186, 195, 255, 0.2);
 }
 
 .category__image-container {
@@ -123,5 +189,66 @@ const detailSerie = () => {
 
 .category__item:hover .category__item-title {
   color: #ffffff;
+}
+
+/* Status indicators */
+.status-indicators {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+}
+
+.status-indicator {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.status-indicator:hover {
+  transform: scale(1.1);
+}
+
+.status-indicator.favorite {
+  background-color: rgba(59, 130, 246, 0.8);
+  color: white;
+}
+
+.status-indicator.watched {
+  background-color: rgba(59, 130, 246, 0.8);
+  color: white;
+}
+
+.status-indicator.watchlist {
+  background-color: rgba(59, 130, 246, 0.8);
+  color: white;
+}
+
+.status-icon {
+  width: 12px;
+  height: 12px;
+  filter: brightness(0) saturate(100%);
+  object-fit: contain;
+  max-width: 12px;
+  max-height: 12px;
+  flex-shrink: 0;
+}
+
+/* Ajuste específico para el icono de favoritos */
+.status-indicator.favorite .status-icon {
+  width: 10px !important;
+  height: 10px !important;
+  max-width: 10px !important;
+  max-height: 10px !important;
 }
 </style>

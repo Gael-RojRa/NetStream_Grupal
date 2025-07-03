@@ -346,6 +346,170 @@ app.get(
   }
 )
 
+// ==================== EPISODES WATCHED ENDPOINTS ====================
+
+// Marcar un episodio como visto
+app.post(
+  '/episodes/watched',
+  { preHandler: auth },
+  async (req, reply) => {
+    console.log('📝 Request body recibido:', req.body);
+    console.log('📝 User from token:', req.user);
+    
+    const { series_id, season_number, episode_id, episode_number } = req.body
+    
+    console.log('📝 Marcando episodio como visto:', { 
+      series_id, 
+      season_number, 
+      episode_id, 
+      episode_number, 
+      user_id: req.user.sub,
+      types: {
+        series_id: typeof series_id,
+        season_number: typeof season_number,
+        episode_id: typeof episode_id,
+        episode_number: typeof episode_number
+      }
+    });
+    
+    if (!series_id || season_number === undefined || season_number === null || !episode_id || !episode_number) {
+      console.log('❌ Faltan parámetros requeridos. Valores recibidos:', {
+        series_id: series_id,
+        season_number: season_number,
+        episode_id: episode_id,
+        episode_number: episode_number
+      });
+      return reply.code(400).send({ 
+        error: 'series_id, season_number, episode_id y episode_number son requeridos' 
+      })
+    }
+    
+    try {
+      const result = await db.execute({
+        sql: `
+          INSERT OR IGNORE INTO episodes_watched 
+          (user_id, series_id, season_number, episode_id, episode_number, watched_at)
+          VALUES (?, ?, ?, ?, ?, datetime('now'))
+        `,
+        args: [req.user.sub, series_id, season_number, episode_id, episode_number]
+      })
+      
+      console.log('✅ Episodio marcado como visto. Cambios:', result.changes);
+      
+      reply.send({ 
+        series_id, 
+        season_number, 
+        episode_id, 
+        episode_number, 
+        watched: true 
+      })
+    } catch (err) {
+      console.error('❌ Error al marcar episodio como visto:', err);
+      reply.code(500).send({ error: err.message })
+    }
+  }
+)
+
+// Desmarcar un episodio como visto
+app.delete(
+  '/episodes/watched',
+  { preHandler: auth },
+  async (req, reply) => {
+    const { series_id, episode_id } = req.body
+    
+    console.log('🗑️ Desmarcando episodio como visto:', { series_id, episode_id, user_id: req.user.sub });
+    
+    if (!series_id || !episode_id) {
+      console.log('❌ Faltan parámetros requeridos');
+      return reply.code(400).send({ 
+        error: 'series_id y episode_id son requeridos' 
+      })
+    }
+    
+    try {
+      const result = await db.execute({
+        sql: `
+          DELETE FROM episodes_watched 
+          WHERE user_id = ? AND series_id = ? AND episode_id = ?
+        `,
+        args: [req.user.sub, series_id, episode_id]
+      })
+      
+      console.log('✅ Episodio desmarcado. Cambios:', result.changes);
+      
+      reply.send({ 
+        series_id, 
+        episode_id, 
+        watched: false 
+      })
+    } catch (err) {
+      console.error('❌ Error al desmarcar episodio:', err);
+      reply.code(500).send({ error: err.message })
+    }
+  }
+)
+
+// Obtener episodios vistos de una serie
+app.get(
+  '/episodes/watched/:series_id',
+  { preHandler: auth },
+  async (req, reply) => {
+    const { series_id } = req.params
+    
+    if (!series_id) {
+      return reply.code(400).send({ error: 'series_id es requerido' })
+    }
+    
+    try {
+      const { rows } = await db.execute({
+        sql: `
+          SELECT series_id, season_number, episode_id, episode_number, watched_at
+          FROM episodes_watched 
+          WHERE user_id = ? AND series_id = ?
+          ORDER BY season_number, episode_number
+        `,
+        args: [req.user.sub, series_id]
+      })
+      
+      reply.send(rows)
+    } catch (err) {
+      reply.code(500).send({ error: err.message })
+    }
+  }
+)
+
+// Obtener progreso de una serie (episodios vistos por temporada)
+app.get(
+  '/series/progress/:series_id',
+  { preHandler: auth },
+  async (req, reply) => {
+    const { series_id } = req.params
+    
+    if (!series_id) {
+      return reply.code(400).send({ error: 'series_id es requerido' })
+    }
+    
+    try {
+      const { rows } = await db.execute({
+        sql: `
+          SELECT 
+            season_number,
+            COUNT(*) as watched_episodes
+          FROM episodes_watched 
+          WHERE user_id = ? AND series_id = ?
+          GROUP BY season_number
+          ORDER BY season_number
+        `,
+        args: [req.user.sub, series_id]
+      })
+      
+      reply.send(rows)
+    } catch (err) {
+      reply.code(500).send({ error: err.message })
+    }
+  }
+)
+
 const port = process.env.PORT || 3000
 app.listen({ port }).then(() => {
   console.log(`Servidor corriendo en http://localhost:${port}`)
