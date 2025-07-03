@@ -58,6 +58,25 @@ onMounted(async () => {
           episodeProgressStore.loadSeriesProgress(serieData.data.id)
         ]);
       }
+      
+      // Pre-cargar el count de episodios de todas las temporadas para la barra de progreso
+      if (serieData.data.seasons && serieData.data.seasons.length > 0) {
+        const seasonsToLoad = serieData.data.seasons
+          .filter(season => season.type.name === 'Aired Order')
+          .sort((a, b) => a.number - b.number);
+        
+        // Cargar episodios de todas las temporadas en paralelo (solo para obtener el count)
+        const loadPromises = seasonsToLoad.map(season => 
+          loadSeasonEpisodes(season.number).catch(err => {
+            console.warn(`No se pudieron cargar episodios de temporada ${season.number}:`, err);
+          })
+        );
+        
+        // Esperar a que se carguen pero no bloquear la UI si falla
+        Promise.all(loadPromises).then(() => {
+          console.log('✅ Todos los episodios pre-cargados para cálculo de progreso');
+        });
+      }
     }
 
   } catch (err) {
@@ -264,14 +283,22 @@ const toggleEpisodeWatched = async (episode: any, seasonNumber: number) => {
 const getTotalEpisodesInSeries = computed(() => {
   if (!serie.value) return 0;
   
+  // Calcular basándose en los episodios cargados o en la serie
   let total = 0;
   for (const season of getSeasons.value) {
-    const episodes = seasonEpisodes.value[season.number];
-    if (episodes?.data?.episodes) {
-      total += episodes.data.episodes.length;
+    // Prioridad 1: episodios ya cargados para esta temporada
+    const loadedEpisodes = seasonEpisodes.value[season.number];
+    if (loadedEpisodes?.data?.episodes) {
+      total += loadedEpisodes.data.episodes.length;
+    } else if (serie.value.data.episodes && serie.value.data.episodes.length > 0) {
+      // Prioridad 2: episodios que ya están en la serie filtrados por temporada
+      const episodesInSeason = serie.value.data.episodes.filter(ep => ep.seasonNumber === season.number);
+      total += episodesInSeason.length;
     }
+    // Si no hay episodios disponibles, no agregar nada (se cargará asincrónicamente)
   }
   
+  console.log('📊 Total episodios calculado:', total, 'para', getSeasons.value.length, 'temporadas');
   return total;
 });
 
