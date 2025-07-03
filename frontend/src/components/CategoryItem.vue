@@ -16,8 +16,7 @@ const props = defineProps<{
 const authStore = useAuthStore();
 const userListsStore = useUserListsStore();
 
-// Computed para obtener el estado del media
-const mediaStatus = computed(() => {
+  const mediaStatus = computed(() => {
   if (!authStore.isAuthenticated) {
     return null;
   }
@@ -25,22 +24,49 @@ const mediaStatus = computed(() => {
   const mediaType = props.mediaType === 'movies' ? 'movie' : 'series';
   
   // Intentar diferentes formas de obtener un ID válido
-  let mediaId: number = props.id as number;
+  let mediaId: number;
+  if (typeof props.id === 'string') {
+    // Para resultados de búsqueda, el ID puede ser un string directo
+    if (props.id.includes('-')) {
+      const parts = props.id.split('-');
+      mediaId = parseInt(parts[parts.length - 1]);
+    } else {
+      mediaId = parseInt(props.id);
+    }
+  } else {
+    mediaId = props.id;
+  }
   
-  
-  return {
+  // Validar que tenemos un ID válido
+  if (isNaN(mediaId) || mediaId <= 0) {
+    console.warn(`Invalid media ID for ${props.title}:`, props.id);
+    return null;
+  }
+
+  const status = {
     isWatched: userListsStore.isWatched(mediaId, mediaType),
     isFavorite: userListsStore.isFavorite(mediaId, mediaType),
     isInWatchlist: userListsStore.isInWatchlist(mediaId, mediaType)
   };
+
+  // Debug: Mostrar info solo si algún estado es true
+  if (status.isWatched || status.isFavorite || status.isInWatchlist) {
+    console.log(`🎬 Media status for "${props.title}" (ID: ${mediaId}, Type: ${mediaType}):`, status);
+  }
+  
+  return status;
 });
 
 // Cargar el estado cuando se monta el componente
 onMounted(async () => {
   if (authStore.isAuthenticated) {
     try {
-      // Siempre intentar cargar las listas para asegurar que estén actualizadas
-      await userListsStore.loadAllLists();
+      // Si no hay listas cargadas, cargarlas
+      if (userListsStore.watchlist.length === 0 && 
+          userListsStore.watched.length === 0 && 
+          userListsStore.favorites.length === 0) {
+        await userListsStore.loadAllLists();
+      }
     } catch (error) {
       console.error('Error loading user lists in CategoryItem:', error);
     }
@@ -57,6 +83,16 @@ watch(() => authStore.isAuthenticated, async (isAuthenticated) => {
     }
   }
 });
+
+// Observar cambios en las listas para refrescar el estado cuando se actualicen
+watch([
+  () => userListsStore.watchlist.length,
+  () => userListsStore.watched.length, 
+  () => userListsStore.favorites.length
+], () => {
+  // Forzar recálculo del estado computado
+  // El computed se actualizará automáticamente
+}, { flush: 'post' });
 
 const detailSerie = () => {
   if (props.mediaType === 'movies') {

@@ -46,6 +46,7 @@ const mediaLabel = computed(() =>
 onMounted(async () => {
   // Cargar listas de usuario si está autenticado
   if (authStore.isAuthenticated) {
+    console.log('🔐 User authenticated, loading user lists...');
     await userListsStore.loadAllLists().catch(console.error);
   }
   
@@ -73,10 +74,17 @@ watch(() => authStore.isAuthenticated, async (isAuthenticated) => {
 
 // Observar cambios en los resultados de búsqueda para asegurar que las listas estén cargadas
 watch(() => searchStore.hasSearchResults, async (hasResults) => {
-  if (hasResults && authStore.isAuthenticated && userListsStore.watchlist.length === 0) {
+  if (hasResults && authStore.isAuthenticated) {
     await userListsStore.loadAllLists().catch(console.error);
   }
 })
+
+// Observar cambios en displayItems para asegurar que las listas de usuario estén cargadas
+watch(() => displayItems.value, async (newItems) => {
+  if (newItems.length > 0 && authStore.isAuthenticated && userListsStore.watchlist.length === 0) {
+    await userListsStore.loadAllLists().catch(console.error);
+  }
+}, { immediate: true })
 
 </script>
 
@@ -108,7 +116,7 @@ watch(() => searchStore.hasSearchResults, async (hasResults) => {
         :key="item.id" 
         :id="item.id.toString()" 
         :title="item.name" 
-        :image="item.image_url"
+        :image="item.image_url || item.thumbnail"
         :slug="item.slug" 
         :media-type="props.mediaType" 
       />
