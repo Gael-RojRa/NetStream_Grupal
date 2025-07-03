@@ -22,16 +22,21 @@ export const useUserListsStore = defineStore('userLists', () => {
   const isLoading = ref(false);
   const error = ref<string | null>(null);
 
-  // Computed para verificar estados
-  const isInWatchlist = computed(() => (mediaId: number, mediaType: 'movie' | 'series') => 
-    watchlist.value.some(item => item.id === mediaId && item.type === mediaType)
-  );
-  const isWatched = computed(() => (mediaId: number, mediaType: 'movie' | 'series') => 
-    watched.value.some(item => item.id === mediaId && item.type === mediaType)
-  );
-  const isFavorite = computed(() => (mediaId: number, mediaType: 'movie' | 'series') => 
-    favorites.value.some(item => item.id === mediaId && item.type === mediaType)
-  );
+  // Computed para verificar estados con más validación
+  const isInWatchlist = computed(() => (mediaId: number, mediaType: 'movie' | 'series') => {
+    if (!mediaId || mediaId <= 0) return false;
+    return watchlist.value.some(item => item.id === mediaId && item.type === mediaType);
+  });
+  
+  const isWatched = computed(() => (mediaId: number, mediaType: 'movie' | 'series') => {
+    if (!mediaId || mediaId <= 0) return false;
+    return watched.value.some(item => item.id === mediaId && item.type === mediaType);
+  });
+  
+  const isFavorite = computed(() => (mediaId: number, mediaType: 'movie' | 'series') => {
+    if (!mediaId || mediaId <= 0) return false;
+    return favorites.value.some(item => item.id === mediaId && item.type === mediaType);
+  });
 
   async function loadAllLists() {
     isLoading.value = true;
@@ -44,9 +49,25 @@ export const useUserListsStore = defineStore('userLists', () => {
         getFavorites()
       ]);
 
-      watchlist.value = watchlistData.map(item => ({ id: item.media_id, type: item.media_type }));
-      watched.value = watchedData.map(item => ({ id: item.media_id, type: item.media_type }));
-      favorites.value = favoritesData.map(item => ({ id: item.media_id, type: item.media_type }));
+      // Mapear correctamente los datos del backend
+      watchlist.value = watchlistData.map(item => ({ 
+        id: item.media_id, 
+        type: item.media_type === 'movie' ? 'movie' : 'series' 
+      }));
+      watched.value = watchedData.map(item => ({ 
+        id: item.media_id, 
+        type: item.media_type === 'movie' ? 'movie' : 'series' 
+      }));
+      favorites.value = favoritesData.map(item => ({ 
+        id: item.media_id, 
+        type: item.media_type === 'movie' ? 'movie' : 'series' 
+      }));
+
+      console.log('📊 User lists loaded:', {
+        watchlist: watchlist.value.length,
+        watched: watched.value.length,
+        favorites: favorites.value.length
+      });
     } catch (err: any) {
       error.value = err.message || 'Error al cargar las listas';
       console.error('Error loading user lists:', err);
