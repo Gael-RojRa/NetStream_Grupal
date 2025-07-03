@@ -107,35 +107,55 @@ export const useSearchStore = defineStore('search', () => {
     }
   }
 
-  const loadRandomMovies = async () => {
-    if (hasRandomMovies.value) return // Ya tenemos datos
+  const loadRandomMovies = async (loadMore: boolean = false) => {
+    if (hasRandomMovies.value && !loadMore) return // Ya tenemos datos
 
     isLoadingRandom.value = true
     try {
       logger.info('Loading random movies...')
-      const result = await getRandomMovies(10)
-      randomMovies.value = result.data
-      logger.info(`Loaded ${randomMovies.value.length} random movies`)
+      const result = await getRandomMovies(20) // Cargar 20 siempre
+      
+      if (loadMore) {
+        // Agregar nuevos resultados a los existentes
+        randomMovies.value = [...randomMovies.value, ...result.data]
+      } else {
+        // Reemplazar resultados existentes
+        randomMovies.value = result.data
+      }
+      
+      logger.info(`Loaded ${result.data.length} random movies. Total: ${randomMovies.value.length}`)
     } catch (error) {
       logger.error('Error loading random movies:', error)
-      randomMovies.value = []
+      if (!loadMore) {
+        randomMovies.value = []
+      }
     } finally {
       isLoadingRandom.value = false
     }
   }
 
-  const loadRandomSeries = async () => {
-    if (hasRandomSeries.value) return // Ya tenemos datos
+  const loadRandomSeries = async (loadMore: boolean = false) => {
+    if (hasRandomSeries.value && !loadMore) return // Ya tenemos datos
 
     isLoadingRandom.value = true
     try {
       logger.info('Loading random series...')
-      const result = await getRandomSeries(10)
-      randomSeries.value = result.data
-      logger.info(`Loaded ${randomSeries.value.length} random series`)
+      const result = await getRandomSeries(20) // Cargar 20 siempre
+      
+      if (loadMore) {
+        // Agregar nuevos resultados a los existentes
+        randomSeries.value = [...randomSeries.value, ...result.data]
+      } else {
+        // Reemplazar resultados existentes
+        randomSeries.value = result.data
+      }
+      
+      logger.info(`Loaded ${result.data.length} random series. Total: ${randomSeries.value.length}`)
     } catch (error) {
       logger.error('Error loading random series:', error)
-      randomSeries.value = []
+      if (!loadMore) {
+        randomSeries.value = []
+      }
     } finally {
       isLoadingRandom.value = false
     }
@@ -151,6 +171,14 @@ export const useSearchStore = defineStore('search', () => {
   const retryLastSearch = () => {
     if (currentSearchQuery.value) {
       performSearch(currentSearchQuery.value, currentSearchType.value)
+    }
+  }
+
+  const loadMoreRandomContent = async (type: 'movies' | 'series') => {
+    if (type === 'movies') {
+      await loadRandomMovies(true)
+    } else {
+      await loadRandomSeries(true)
     }
   }
 
@@ -188,6 +216,7 @@ export const useSearchStore = defineStore('search', () => {
     performSearch,
     loadRandomMovies,
     loadRandomSeries,
+    loadMoreRandomContent,
     clearSearch,
     retryLastSearch,
     resetStore

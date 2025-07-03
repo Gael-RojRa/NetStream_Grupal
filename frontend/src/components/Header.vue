@@ -679,7 +679,6 @@ const toggleLoginModal = () => {
     height: 52px;
     padding: 0 20px;
     gap: 16px;
-    max-width: 600px;
   }
   
   .header__input {
