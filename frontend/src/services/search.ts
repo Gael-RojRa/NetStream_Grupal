@@ -2,7 +2,7 @@ import api from './api';
 import { useMediaStore } from '@/stores/mediaStore';
 import { login } from './auth';
 import { Validator } from '@/utils/validators';
-import { logger } from '@/services/logger';
+import { logger } from '@/utils/logger';
 import type { SearchResult } from '../types/searchResult';
 
 interface SearchParams {
@@ -79,7 +79,7 @@ export class SearchService {
 }
 
 export const searchService = new SearchService()
-  
+
 export async function searchMedia(query: string, type?: string, limit: number = 20): Promise<SearchResult> {
   return searchService.searchMedia({ query, type: type as any, limit })
 }

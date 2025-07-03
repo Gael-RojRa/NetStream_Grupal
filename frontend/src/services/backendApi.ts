@@ -1,10 +1,12 @@
 import axios from 'axios';
+import { config } from '@/config';
 
 const backendApi = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000',
+  baseURL: config.backend.baseUrl,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: config.api.timeout,
 });
 
 // Interceptor para agregar el token JWT automáticamente

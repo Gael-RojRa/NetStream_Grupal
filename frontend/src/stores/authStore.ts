@@ -58,8 +58,8 @@ export const useAuthStore = defineStore('auth', () => {
       userListsStore.clearLists();
     });
 
-    // Redirigir a la página de Explore
-    router.push('/home');
+    // Redirigir a la página de Explore (Home)
+    router.push('/');
   }
 
   function clearError() {

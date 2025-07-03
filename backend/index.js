@@ -15,8 +15,11 @@ await app.register(import('@fastify/cors'), {
     'http://localhost:5173', // Vite dev server
     'http://localhost:4173', // Vite preview
     'http://localhost:3000', // Desarrollo local alternativo
-    /^https?:\/\/localhost:\d+$/ // Cualquier puerto localhost
-  ],
+    /^https?:\/\/localhost:\d+$/, // Cualquier puerto localhost
+    /^https:\/\/.*\.vercel\.app$/, // Dominios de Vercel
+    'https://netstream-grupal.vercel.app', // Tu dominio específico de Vercel (cambiar por el real)
+    process.env.FRONTEND_URL // URL del frontend desde variables de entorno
+  ].filter(Boolean), // Filtrar valores undefined
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 })
@@ -511,6 +514,8 @@ app.get(
 )
 
 const port = process.env.PORT || 3000
-app.listen({ port }).then(() => {
-  console.log(`Servidor corriendo en http://localhost:${port}`)
+const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost'
+
+app.listen({ port, host }).then(() => {
+  console.log(`Servidor corriendo en http://${host}:${port}`)
 })
