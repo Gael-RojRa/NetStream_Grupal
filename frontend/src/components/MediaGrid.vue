@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import CategoryItem from '@/components/CategoryItem.vue';
+import CategoryItemWithScore from '@/components/CategoryItemWithScore.vue';
 import { useSearchStore } from '@/stores/searchStore';
 import { useUserListsStore } from '@/stores/userListsStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -15,23 +15,6 @@ const searchStore = useSearchStore()
 const userListsStore = useUserListsStore()
 const authStore = useAuthStore()
 const route = useRoute()
-
-// Función para generar una calificación base realista
-const getDisplayRating = (item: any) => {
-  // Si el item tiene score, usarlo
-  if ('score' in item && item.score) {
-    return item.score;
-  }
-  
-  // Si no, generar una calificación base entre 6.0 y 9.0 basada en el año
-  const currentYear = new Date().getFullYear();
-  const itemYear = parseInt(item.year) || currentYear;
-  const yearDiff = Math.abs(currentYear - itemYear);
-  
-  // Películas/series más recientes tienden a tener calificaciones más altas
-  const baseRating = Math.max(6.0, 9.0 - (yearDiff * 0.1));
-  return Math.round(baseRating * 10) / 10; // Redondear a 1 decimal
-};
 
 // Computed properties para determinar qué datos mostrar
 const displayItems = computed(() => {
@@ -120,13 +103,12 @@ watch(() => searchStore.hasSearchResults, async (hasResults) => {
     </div>
 
     <div class="content-grid">
-      <CategoryItem 
+      <CategoryItemWithScore 
         v-for="item in displayItems" 
         :key="item.id" 
         :id="item.id.toString()" 
         :title="item.name" 
         :image="item.image_url"
-        :rating="getDisplayRating(item)" 
         :slug="item.slug" 
         :media-type="props.mediaType" 
       />

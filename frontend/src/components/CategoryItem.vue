@@ -27,8 +27,6 @@ const mediaStatus = computed(() => {
   // Intentar diferentes formas de obtener un ID válido
   let mediaId: number;
   
-  console.log('ID original:', props.id, 'tipo:', typeof props.id);
-  
   // Si el ID es una cadena de número puro, convertir directamente
   if (!isNaN(Number(props.id))) {
     mediaId = Number(props.id);
@@ -39,14 +37,12 @@ const mediaStatus = computed(() => {
     const numericPart = parts[parts.length - 1]; // Tomar la última parte después del guión
     if (!isNaN(Number(numericPart))) {
       mediaId = Number(numericPart);
-      console.log('ID extraído del formato con guión:', numericPart, '→', mediaId);
     } else {
       // Si no se puede extraer un número, usar hash como fallback
       mediaId = Math.abs(props.id.split('').reduce((a, b) => {
         a = ((a << 5) - a) + b.charCodeAt(0);
         return a & a;
       }, 0));
-      console.log('Usando hash como fallback:', mediaId);
     }
   }
   // Fallback para otros formatos
@@ -55,18 +51,7 @@ const mediaStatus = computed(() => {
       a = ((a << 5) - a) + b.charCodeAt(0);
       return a & a;
     }, 0));
-    console.log('Usando hash para formato desconocido:', mediaId);
   }
-  
-  console.log(`Checking status for media ${mediaId} (${mediaType}) - original ID: ${props.id}`, {
-    watchlistLength: userListsStore.watchlist.length,
-    watchedLength: userListsStore.watched.length,
-    favoritesLength: userListsStore.favorites.length,
-    watchlistItems: userListsStore.watchlist,
-    isInWatchlist: userListsStore.isInWatchlist(mediaId, mediaType),
-    isWatched: userListsStore.isWatched(mediaId, mediaType),
-    isFavorite: userListsStore.isFavorite(mediaId, mediaType)
-  });
   
   return {
     isWatched: userListsStore.isWatched(mediaId, mediaType),
@@ -81,11 +66,6 @@ onMounted(async () => {
     try {
       // Siempre intentar cargar las listas para asegurar que estén actualizadas
       await userListsStore.loadAllLists();
-      console.log('Lists loaded in CategoryItem:', {
-        watchlist: userListsStore.watchlist.length,
-        watched: userListsStore.watched.length,
-        favorites: userListsStore.favorites.length
-      });
     } catch (error) {
       console.error('Error loading user lists in CategoryItem:', error);
     }
@@ -142,11 +122,6 @@ const detailSerie = () => {
       
       <!-- Indicadores de estado -->
       <div v-if="mediaStatus && authStore.isAuthenticated" class="status-indicators">
-        <!-- Debug temporal -->
-        <div style="position: absolute; top: -20px; left: 0; font-size: 10px; color: red;">
-          {{ mediaStatus.isInWatchlist ? 'W' : '' }}{{ mediaStatus.isWatched ? 'V' : '' }}{{ mediaStatus.isFavorite ? 'F' : '' }}
-        </div>
-        
         <!-- En lista de seguimiento -->
         <div v-if="mediaStatus.isInWatchlist" class="status-indicator watchlist" title="En lista de seguimiento">
           <img src="../images/watchlist.svg" alt="Watchlist" class="status-icon">
