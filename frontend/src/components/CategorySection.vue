@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CategoryItem from "./CategoryItem.vue";
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
+import { useRouter } from 'vue-router';
 
 interface Props {
   title: string;
@@ -16,9 +17,31 @@ const props = withDefaults(defineProps<Props>(), {
   limit: 10
 });
 
+const router = useRouter();
 const items = ref<any[]>([]);
 const loading = ref(true);
 const error = ref<string | null>(null);
+
+// Computed para determinar la ruta de navegación
+const navigationRoute = computed(() => {
+  // Si el sortBy es trending (mixto), por defecto ir a series
+  if (props.sortBy === 'trending') {
+    return '/shows/series';
+  }
+  
+  // Si es específico de movies, ir a movies
+  if (props.mediaType === 'movies') {
+    return '/shows/movies';
+  }
+  
+  // Si es específico de series o no está claro, ir a series
+  return '/shows/series';
+});
+
+// Función para manejar la navegación
+const handleNavigation = () => {
+  router.push(navigationRoute.value);
+};
 
 const getRandomPages = (count: number = 2) => {
   // Generar páginas aleatorias entre 1 y 10 para obtener variedad
@@ -126,7 +149,7 @@ onMounted(async () => {
 
 <template>
   <section class="category">
-    <div class="category__header">
+    <div class="category__header" @click="handleNavigation">
       <h2 class="category__title">{{ title }}</h2>
       <div class="category__arrow-container">
         <img
@@ -180,6 +203,17 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.2rem;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+  user-select: none;
+}
+
+.category__header:hover {
+  opacity: 0.8;
+}
+
+.category__header:active {
+  opacity: 0.6;
 }
 
 .category__title {
@@ -188,12 +222,18 @@ onMounted(async () => {
   font-weight: 600;
 }
 
-/* .category__arrow-container {
-} */
+.category__arrow-container {
+  transition: transform 0.2s ease;
+}
+
+.category__header:hover .category__arrow-container {
+  transform: translateX(2px);
+}
 
 .category__arrow {
   width: 20px;
   height: 20px;
+  transition: opacity 0.2s ease;
 }
 
 .category__grid {
