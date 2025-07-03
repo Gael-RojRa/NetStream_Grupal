@@ -271,12 +271,12 @@ const detailSerie = () => {
 }
 
 .status-indicator.favorite {
-  background-color: rgba(239, 68, 68, 0.8);
+  background-color: rgba(59, 130, 246, 0.8);
   color: white;
 }
 
 .status-indicator.watched {
-  background-color: rgba(34, 197, 94, 0.8);
+  background-color: rgba(59, 130, 246, 0.8);
   color: white;
 }
 
@@ -288,7 +288,7 @@ const detailSerie = () => {
 .status-icon {
   width: 12px;
   height: 12px;
-  filter: brightness(1) invert(1);
+  filter: brightness(0) saturate(100%);
   object-fit: contain;
   max-width: 12px;
   max-height: 12px;
