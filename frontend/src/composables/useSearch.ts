@@ -74,3 +74,4 @@ export function useSearch() {
     hasSearchResults: computed(() => searchStore.hasSearchResults)
   }
 }
+ 

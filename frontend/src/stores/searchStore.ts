@@ -54,14 +54,46 @@ export const useSearchStore = defineStore('search', () => {
 
       logger.info(`Performing search for "${query}" with type "${type}"`)
 
-      const searchType = type === 'all' ? undefined : type
-      const result = await searchService.searchMedia({
-        query: query.trim(),
-        type: searchType,
-        limit: 10
-      })
+      let allResults: Datum[] = []
 
-      searchResults.value = result.data || []
+      if (type === 'all') {
+        // Buscar en ambos tipos cuando es 'all'
+        const [moviesResult, seriesResult] = await Promise.allSettled([
+          searchService.searchMedia({
+            query: query.trim(),
+            type: 'movies',
+            limit: 5
+          }),
+          searchService.searchMedia({
+            query: query.trim(),
+            type: 'series',
+            limit: 5
+          })
+        ])
+
+        // Combinar resultados exitosos
+        if (moviesResult.status === 'fulfilled' && moviesResult.value.data) {
+          allResults = [...allResults, ...moviesResult.value.data]
+        }
+        if (seriesResult.status === 'fulfilled' && seriesResult.value.data) {
+          allResults = [...allResults, ...seriesResult.value.data]
+        }
+
+        // Si ambas búsquedas fallaron, lanzar error
+        if (moviesResult.status === 'rejected' && seriesResult.status === 'rejected') {
+          throw new Error('No se pudieron buscar películas ni series')
+        }
+      } else {
+        // Búsqueda específica por tipo
+        const result = await searchService.searchMedia({
+          query: query.trim(),
+          type: type,
+          limit: 10
+        })
+        allResults = result.data || []
+      }
+
+      searchResults.value = allResults
       
       logger.info(`Search completed. Found ${searchResults.value.length} results`)
     } catch (error) {

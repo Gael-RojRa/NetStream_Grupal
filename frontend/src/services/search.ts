@@ -34,16 +34,22 @@ export class SearchService {
       'series': 'series'
     }
     
-    return typeMap[type || ''] || 'all'
+    return typeMap[type || ''] || ''
   }
 
   private buildSearchParams(params: SearchParams): URLSearchParams {
-    return new URLSearchParams({
+    const searchParams = new URLSearchParams({
       query: params.query.trim(),
-      type: this.normalizeSearchType(params.type),
       limit: String(params.limit || this.DEFAULT_LIMIT),
       ...(params.page && { page: String(params.page) })
     })
+
+    const normalizedType = this.normalizeSearchType(params.type)
+    if (normalizedType) {
+      searchParams.set('type', normalizedType)
+    }
+
+    return searchParams
   }
 
   private async ensureAuthentication(): Promise<void> {
@@ -61,20 +67,52 @@ export class SearchService {
       this.validateSearchParams(params)
       await this.ensureAuthentication()
       
-      const searchParams = this.buildSearchParams(params)
-      const endpoint = `search?${searchParams.toString()}`
+      logger.info(`Performing search for "${params.query}" with type "${params.type || 'all'}"`)
       
-      logger.info(`Searching for "${params.query}" with type "${params.type || 'all'}"`)
+      // Si el tipo es 'all', hacer búsquedas separadas para movies y series
+      if (params.type === 'all' || !params.type) {
+        const [movieResults, seriesResults] = await Promise.all([
+          this.searchByType({ ...params, type: 'movies' }),
+          this.searchByType({ ...params, type: 'series' })
+        ])
+        
+        // Combinar resultados
+        const combinedData = [
+          ...(movieResults.data || []),
+          ...(seriesResults.data || [])
+        ]
+        
+        logger.info(`Search completed. Found ${combinedData.length} results (${movieResults.data?.length || 0} movies, ${seriesResults.data?.length || 0} series)`)
+        
+        return {
+          status: movieResults.status || 'success',
+          data: combinedData,
+          links: {
+            ...movieResults.links,
+            total_items: (movieResults.links?.total_items || 0) + (seriesResults.links?.total_items || 0)
+          }
+        }
+      }
       
-      const response = await api.get<SearchResult>(endpoint)
-      
-      logger.info(`Search completed. Found ${response.data?.data?.length || 0} results`)
-      
-      return response.data
+      // Para un tipo específico, usar la búsqueda directa
+      return await this.searchByType(params)
     } catch (error) {
       logger.error('Search failed:', error)
       throw error
     }
+  }
+
+  private async searchByType(params: SearchParams): Promise<SearchResult> {
+    const searchParams = this.buildSearchParams(params)
+    const endpoint = `search?${searchParams.toString()}`
+    
+    logger.info(`Searching for "${params.query}" with type "${params.type}"`)
+    
+    const response = await api.get<SearchResult>(endpoint)
+    
+    logger.info(`Search completed. Found ${response.data?.data?.length || 0} results`)
+    
+    return response.data
   }
 }
 

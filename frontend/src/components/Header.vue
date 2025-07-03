@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useSearch } from '@/composables/useSearch'
 import { useKeyboardManager } from '@/composables/useKeyboardManager'
 import { useClickOutside } from '@/composables/useClickOutside'
@@ -10,12 +11,20 @@ import { useAuthStore } from '@/stores/authStore'
 import { useUserListsStore } from '@/stores/userListsStore'
 import LoginModal from './LoginModal.vue'
 
+const route = useRoute()
+const router = useRouter()
+
 const authStore = useAuthStore()
 const userListsStore = useUserListsStore()
 
 // Estados locales simples
 const showTypeDropdown = ref(false)
 const showLoginModal = ref(false)
+
+// Computed para detectar si está en MyShows
+const isInMyShows = computed(() => {
+  return route.path.includes('/shows') || (typeof route.name === 'string' && route.name.includes('shows'))
+})
 
 // Composables con responsabilidades específicas
 const {
@@ -56,9 +65,33 @@ const focusSearchInput = async () => {
 }
 
 const navigateToResult = (result: Datum) => {
-  // Aquí puedes agregar la lógica de navegación
-  console.log('Navegando a:', result)
-  // Ejemplo: router.push({ name: 'media-detail', params: { slug: result.slug } })
+  // Limpiar la búsqueda al navegar
+  clearSearch()
+  
+  // Navegación basada en el tipo de media
+  if (result.type === 'movie') {
+    router.push({
+      name: 'movie-details',
+      params: {
+        slug: result.slug,
+      }
+    });
+  } else if (result.type === 'series') {
+    router.push({
+      name: 'serie-details',
+      params: {
+        slug: result.slug,
+      }
+    });
+  } else {
+    // Por defecto, asumir que es una serie
+    router.push({
+      name: 'serie-details',
+      params: {
+        slug: result.slug,
+      }
+    });
+  }
 }
 
 const handleImageError = (event: Event) => {
@@ -123,7 +156,7 @@ const toggleLoginModal = () => {
       </div>
 
       <!-- Resultados de búsqueda -->
-      <div v-if="(isInputFocused || searchValue) && (isSearching || hasSearchResults)" class="search-results">
+      <div v-if="(isInputFocused || searchValue) && (isSearching || hasSearchResults) && !isInMyShows" class="search-results">
         <!-- Loading spinner -->
         <div v-if="isSearching" class="search-loading">
           <div class="search-spinner"></div>
@@ -136,7 +169,7 @@ const toggleLoginModal = () => {
         </div>
         
         <!-- Results list -->
-        <!-- <div v-else class="search-results-list">
+        <div v-else class="search-results-list">
           <div 
             v-for="result in searchResults" 
             :key="result.id"
@@ -159,7 +192,7 @@ const toggleLoginModal = () => {
               </div>
             </div>
           </div>
-        </div> -->
+        </div>
       </div>
 
     </div>
