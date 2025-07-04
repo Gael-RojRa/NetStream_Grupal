@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 const backendApi = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000',
+  baseURL: import.meta.env.PROD 
+    ? '/api' // En producción usa las rutas de Vercel
+    : (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'),
   headers: {
     'Content-Type': 'application/json',
   },

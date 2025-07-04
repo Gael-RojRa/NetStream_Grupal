@@ -15,8 +15,10 @@ await app.register(import('@fastify/cors'), {
     'http://localhost:5173', // Vite dev server
     'http://localhost:4173', // Vite preview
     'http://localhost:3000', // Desarrollo local alternativo
-    /^https?:\/\/localhost:\d+$/ // Cualquier puerto localhost
-  ],
+    /^https?:\/\/localhost:\d+$/, // Cualquier puerto localhost
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+    process.env.VITE_APP_URL || null
+  ].filter(Boolean),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 })
