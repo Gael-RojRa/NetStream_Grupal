@@ -77,7 +77,7 @@ TURSO_DB_TOKEN=tu_turso_token
 
 ```bash
 # Iniciar servidor de desarrollo
-php artisan serve
+npm run dev
 ```
 
 ---
